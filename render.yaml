@@ -1,0 +1,17 @@
+services:
+  - type: web
+    name: querysage-backend
+    env: node
+    buildCommand: pnpm install && pnpm build
+    startCommand: cd backend && pnpm start
+    envVars:
+      - key: DATABASE_URL
+        sync: false
+      - key: NVIDIA_API_KEY
+        sync: false
+      - key: CLERK_PUBLISHABLE_KEY
+        sync: false
+      - key: CLERK_SECRET_KEY
+        sync: false
+      - key: NODE_ENV
+        value: production

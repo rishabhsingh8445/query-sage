@@ -1,0 +1,462 @@
+openapi: 3.1.0
+info:
+  title: Api
+  version: 0.1.0
+  description: QuerySage API specification
+servers:
+  - url: /api
+    description: Base API path
+tags:
+  - name: health
+    description: Health operations
+  - name: analyze
+    description: SQL query analysis and optimization
+  - name: history
+    description: Query history management
+paths:
+  /healthz:
+    get:
+      operationId: healthCheck
+      tags: [health]
+      summary: Health check
+      description: Returns server health status
+      responses:
+        "200":
+          description: Healthy
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthStatus"
+
+  /analyze:
+    post:
+      operationId: analyzeQuery
+      tags: [analyze]
+      summary: Analyze and optimize a SQL query
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AnalyzeInput"
+      responses:
+        "200":
+          description: Optimization result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OptimizationResult"
+        "400":
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "500":
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+
+  /history:
+    get:
+      operationId: getHistory
+      tags: [history]
+      summary: Get query optimization history for current user
+      responses:
+        "200":
+          description: List of past optimizations
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/HistoryEntry"
+    delete:
+      operationId: clearHistory
+      tags: [history]
+      summary: Clear all history for current user
+      responses:
+        "204":
+          description: History cleared
+
+  /history/{id}:
+    get:
+      operationId: getHistoryEntry
+      tags: [history]
+      summary: Get a specific history entry
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: History entry
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HistoryEntry"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+    delete:
+      operationId: deleteHistoryEntry
+      tags: [history]
+      summary: Delete a specific history entry
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+
+  /stats:
+    get:
+      operationId: getStats
+      tags: [history]
+      summary: Get optimization statistics for the current user
+      responses:
+        "200":
+          description: User stats
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserStats"
+
+  /share:
+    post:
+      operationId: createShare
+      tags: [history]
+      summary: Create a shareable link for a history entry
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateShareInput"
+      responses:
+        "200":
+          description: Share ID returned
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  share_id:
+                    type: string
+                required:
+                  - share_id
+
+  /share/{share_id}:
+    get:
+      operationId: getSharedReport
+      tags: [history]
+      summary: Get a shared optimization report by share_id
+      parameters:
+        - name: share_id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Shared report
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HistoryEntry"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+
+  /chat:
+    post:
+      operationId: chatWithAI
+      tags: [history]
+      summary: Follow up chat for an optimization
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ChatRequestBody"
+      responses:
+        "200":
+          description: Streamed AI response
+          content:
+            text/event-stream:
+              schema:
+                type: string
+
+components:
+  schemas:
+    HealthStatus:
+      type: object
+      properties:
+        status:
+          type: string
+      required:
+        - status
+
+    ApiError:
+      type: object
+      properties:
+        error:
+          type: string
+      required:
+        - error
+
+    DBConfig:
+      type: object
+      properties:
+        db_type:
+          type: string
+          enum: [postgresql, mysql]
+        host:
+          type: string
+        port:
+          type: integer
+        database:
+          type: string
+        username:
+          type: string
+        password:
+          type: string
+      required:
+        - db_type
+        - host
+        - port
+        - database
+        - username
+        - password
+
+    AnalyzeInput:
+      type: object
+      properties:
+        query:
+          type: string
+        db_type:
+          type: string
+          enum: [postgresql, mysql]
+        db_config:
+          $ref: "#/components/schemas/DBConfig"
+        manual_schema:
+          type: ["string", "null"]
+        explain_output:
+          type: ["string", "null"]
+      required:
+        - query
+        - db_type
+
+    Bottleneck:
+      type: object
+      properties:
+        type:
+          type: string
+        table:
+          type: ["string", "null"]
+        description:
+          type: string
+        severity:
+          type: string
+          enum: [HIGH, MEDIUM, LOW]
+      required:
+        - type
+        - description
+        - severity
+
+    IndexSuggestion:
+      type: object
+      properties:
+        statement:
+          type: string
+        reason:
+          type: string
+      required:
+        - statement
+        - reason
+
+    ExplainNode:
+      type: object
+      properties:
+        node_type:
+          type: string
+        cost:
+          type: string
+        rows:
+          type: string
+        execution_time:
+          type: string
+        details:
+          type: array
+          items:
+            type: string
+        children:
+          type: array
+          items:
+            $ref: "#/components/schemas/ExplainNode"
+      required:
+        - node_type
+
+    OptimizationResult:
+      type: object
+      properties:
+        id:
+          type: ["integer", "null"]
+        original_query:
+          type: string
+        optimized_query:
+          type: string
+        explanation:
+          type: string
+        bottlenecks:
+          type: array
+          items:
+            $ref: "#/components/schemas/Bottleneck"
+        suggested_indexes:
+          type: array
+          items:
+            anyOf:
+              - type: string
+              - $ref: "#/components/schemas/IndexSuggestion"
+        estimated_improvement:
+          type: string
+        execution_plan_summary:
+          type: string
+        db_type:
+          type: string
+        created_at:
+          type: ["string", "null"]
+        query_complexity_score:
+          type: ["integer", "null"]
+      required:
+        - original_query
+        - optimized_query
+        - explanation
+        - bottlenecks
+        - suggested_indexes
+        - estimated_improvement
+        - execution_plan_summary
+        - db_type
+
+    HistoryEntry:
+      type: object
+      properties:
+        id:
+          type: integer
+        original_query:
+          type: string
+        optimized_query:
+          type: string
+        explanation:
+          type: string
+        bottlenecks:
+          type: array
+          items:
+            $ref: "#/components/schemas/Bottleneck"
+        suggested_indexes:
+          type: array
+          items:
+            anyOf:
+              - type: string
+              - $ref: "#/components/schemas/IndexSuggestion"
+        estimated_improvement:
+          type: string
+        execution_plan_summary:
+          type: string
+        db_type:
+          type: string
+        created_at:
+          type: string
+        user_id:
+          type: string
+        query_complexity_score:
+          type: integer
+        share_id:
+          type: ["string", "null"]
+        chat_history:
+          type: array
+          items:
+            $ref: "#/components/schemas/ChatMessage"
+      required:
+        - id
+        - original_query
+        - optimized_query
+        - explanation
+        - bottlenecks
+        - suggested_indexes
+        - estimated_improvement
+        - execution_plan_summary
+        - db_type
+        - created_at
+        - user_id
+
+    CreateShareInput:
+      type: object
+      properties:
+        history_id:
+          type: integer
+      required:
+        - history_id
+
+    UserStats:
+      type: object
+      properties:
+        total_optimizations:
+          type: integer
+        postgresql_count:
+          type: integer
+        mysql_count:
+          type: integer
+        top_bottleneck_types:
+          type: array
+          items:
+            type: object
+            properties:
+              type:
+                type: string
+              count:
+                type: integer
+            required:
+              - type
+              - count
+      required:
+        - total_optimizations
+        - postgresql_count
+        - mysql_count
+        - top_bottleneck_types
+
+    ChatMessage:
+      type: object
+      properties:
+        role:
+          type: string
+          enum: [user, assistant]
+        content:
+          type: string
+      required:
+        - role
+        - content
+
+    ChatRequestBody:
+      type: object
+      properties:
+        history_id:
+          type: integer
+        message:
+          type: string
+      required:
+        - history_id
+        - message
