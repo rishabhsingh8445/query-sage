@@ -4,7 +4,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import ReactDiffViewer from "react-diff-viewer-continued";
 import { format as formatSql } from "sql-formatter";
-import { ScrollArea } from "@/components/ui/scroll-area";
+
 import { ArrowRight, Zap } from "lucide-react";
 import { useTheme } from "next-themes";
 
@@ -32,7 +32,7 @@ export function HistoryComparisonModal({ id1, id2, isOpen, onClose }: HistoryCom
           </DialogTitle>
         </DialogHeader>
 
-        <ScrollArea className="flex-1 min-w-0">
+        <div className="flex-1 overflow-y-auto min-w-0">
           <div className="p-6 flex flex-col gap-6 min-w-0">
             {isLoading || !entry1 || !entry2 ? (
               <div className="space-y-4">
@@ -141,7 +141,7 @@ export function HistoryComparisonModal({ id1, id2, isOpen, onClose }: HistoryCom
               </>
             )}
           </div>
-        </ScrollArea>
+        </div>
       </DialogContent>
     </Dialog>
   );
