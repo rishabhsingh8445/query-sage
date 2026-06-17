@@ -108,7 +108,11 @@ def create_optimization_graph():
                     new_messages.append(ToolMessage(tool_call_id=tc["id"], content=str(tool_result), name=tc["name"]))
             
             # Observe tool results
-            final_messages = messages + new_messages + [HumanMessage(content="Now that you have the tool results, output the final JSON EXACTLY as requested or output 'HIGH_COST_REWRITE' to rewrite. DO NOT call any more tools.")]
+            if iterations >= 2:
+                prompt_text = "Now that you have the tool results, output the final JSON EXACTLY as requested. This is the final iteration, so you MUST output the JSON and YOU CANNOT use 'HIGH_COST_REWRITE'. DO NOT call any more tools."
+            else:
+                prompt_text = "Now that you have the tool results, output the final JSON EXACTLY as requested or output 'HIGH_COST_REWRITE' to rewrite. DO NOT call any more tools."
+            final_messages = messages + new_messages + [HumanMessage(content=prompt_text)]
             final_res = llm.invoke(final_messages)
             new_messages.append(final_res)
             

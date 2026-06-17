@@ -97,6 +97,10 @@ async def langgraph_analyze(request: AnalyzeBody, user_id: str = Depends(get_cur
                 llm_result = {
                     "optimized_query": final_state.get("optimized_query", ""),
                     "explanation": clean,
+                    "bottlenecks": [{"type": "PARSE_ERROR", "table": "Unknown", "description": "AI Output was not valid JSON. Please check the raw explanation.", "severity": "MEDIUM"}],
+                    "suggested_indexes": [],
+                    "query_complexity_score": 50,
+                    "execution_plan_summary": "Parsing Failed."
                 }
 
             yield f"event: chunk\ndata: {json.dumps(llm_result)}\n\n"
@@ -247,7 +251,7 @@ async def schema_chat(request: SchemaChatBody, user_id: str = Depends(get_curren
     if recent:
         query_history_context = "Recent User Queries Context:\n"
         for i, q in enumerate(recent):
-            query_history_context += f"[Query {i+1} Original]: {q.original_query}\n[Query {i+1} Optimized]: {q.optimized_query}\n\n"
+            query_history_context += f"[Query {i+1} Date]: {q.created_at}\n[Query {i+1} Original]: {q.original_query}\n[Query {i+1} Optimized]: {q.optimized_query}\n\n"
             
     full_context = f"{schema_context}\n---\n{query_history_context}".strip()
     
