@@ -114,8 +114,12 @@ router.post("/schema-chat", async (req, res): Promise<void> => {
   try {
     // 1. Fetch relevant schema chunks from Qdrant
     // Note: Using auth.userId as workspace_id for now until Team Workspaces are fully implemented
-    const relevantSchema = await searchRelevantSchema(auth.userId, message, 3);
-    
+    let relevantSchema: any[] = [];
+    try {
+      relevantSchema = await searchRelevantSchema(auth.userId, message, 3);
+    } catch (err) {
+      req.log.warn({ err }, "Qdrant search failed, falling back to empty schema");
+    }
     let schemaContext = "";
     if (relevantSchema.length > 0) {
       schemaContext = "Relevant Database Schema Context:\n";
@@ -181,7 +185,13 @@ ${queryHistoryContext}
     res.end();
   } catch (err: any) {
     req.log.error({ err }, "Failed to stream schema chat");
-    res.status(500).json({ error: "Failed to process schema chat" });
+    if (!res.headersSent) {
+      res.status(500).json({ error: "Failed to process schema chat" });
+    } else {
+      res.write(`event: chunk\ndata: ${JSON.stringify("\n\n**Error:** I'm sorry, but I encountered an error while processing your request. Please try again.")}\n\n`);
+      res.write(`event: done\ndata: {"success":false}\n\n`);
+      res.end();
+    }
   }
 });
 
