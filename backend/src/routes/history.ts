@@ -34,7 +34,7 @@ router.get("/history", requireAuth, async (req: any, res): Promise<void> => {
     .where(filterCondition)
     .orderBy(desc(queryHistoryTable.createdAt));
 
-  res.json(GetHistoryResponse.parse(rows.map(r => {
+  res.json(GetHistoryResponse.parse(rows.map((r: any) => {
     let safeBottlenecks = r.bottlenecks as any[];
     if (Array.isArray(safeBottlenecks)) {
       safeBottlenecks = safeBottlenecks.map(b => ({
@@ -174,8 +174,8 @@ router.get("/stats", requireAuth, async (req: any, res): Promise<void> => {
     .where(filterCondition);
 
   const total = rows.length;
-  const pgCount = rows.filter(r => r.dbType === "postgresql").length;
-  const mysqlCount = rows.filter(r => r.dbType === "mysql").length;
+  const pgCount = rows.filter((r: any) => r.dbType === "postgresql").length;
+  const mysqlCount = rows.filter((r: any) => r.dbType === "mysql").length;
 
   const bottleneckCounts: Record<string, number> = {};
   for (const row of rows) {

@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { toast } from "sonner";
 import ReactMarkdown from "react-markdown";
+import { useAppStore } from "@/store/useAppStore";
 
 type ChatMessage = {
   role: "user" | "assistant";
@@ -33,7 +34,7 @@ export default function SchemaChatPage() {
 
     const userMessage = input.trim();
     setInput("");
-    setMessages((prev) => [...(prev || []), { role: "user", content: userMessage }]);
+    setMessages((prev: ChatMessage[]) => [...(prev || []), { role: "user", content: userMessage }]);
     setIsLoading(true);
     let assistantMessageAdded = false;
 
@@ -55,7 +56,7 @@ export default function SchemaChatPage() {
         throw new Error("Failed to send message");
       }
 
-      setMessages((prev) => [...(prev || []), { role: "assistant", content: "" }]);
+      setMessages((prev: ChatMessage[]) => [...(prev || []), { role: "assistant", content: "" }]);
       assistantMessageAdded = true;
 
       const reader = response.body?.getReader();
@@ -79,7 +80,7 @@ export default function SchemaChatPage() {
             try {
               const data = JSON.parse(dataStr);
               if (data && typeof data === "string") {
-                setMessages((prev) => {
+                setMessages((prev: ChatMessage[]) => {
                   const newMsgs = [...(prev || [])];
                   const last = newMsgs[newMsgs.length - 1];
                   if (last && last.role === "assistant") {
@@ -97,7 +98,7 @@ export default function SchemaChatPage() {
     } catch (err) {
       toast.error("Failed to communicate with AI");
       if (assistantMessageAdded) {
-        setMessages((prev) => (prev || []).slice(0, -1)); // Remove the pending assistant message
+        setMessages((prev: ChatMessage[]) => (prev || []).slice(0, -1)); // Remove the pending assistant message
       }
     } finally {
       setIsLoading(false);
@@ -130,7 +131,7 @@ export default function SchemaChatPage() {
               </div>
             ) : (
               <div className="space-y-6 pb-4">
-                {messages.map((msg, idx) => (
+                {messages.map((msg: ChatMessage, idx: number) => (
                   <div
                     key={idx}
                     className={`flex ${

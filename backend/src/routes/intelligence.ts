@@ -47,7 +47,7 @@ router.get("/intelligence/history", async (req, res): Promise<void> => {
     }
 
     // Structure data for AI
-    const analysisPayload = queries.map((q, i) => `Query ${i + 1} (${q.dbType}):\n${q.query}\nBottlenecks detected previously: ${JSON.stringify(q.bottlenecks)}\n`).join("\n---\n");
+    const analysisPayload = queries.map((q: any, i: number) => `Query ${i + 1} (${q.dbType}):\n${q.query}\nBottlenecks detected previously: ${JSON.stringify(q.bottlenecks)}\n`).join("\n---\n");
 
     const systemPrompt = `You are an expert Database Administrator analyzing a batch of recent queries (up to 30) for a specific application.
 Look for overarching patterns, common missing indexes that would benefit multiple queries, and recurring bottlenecks (e.g., N+1 queries, full table scans on the same table).

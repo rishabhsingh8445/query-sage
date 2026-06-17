@@ -54,7 +54,7 @@ router.get("/:share_id", async (req, res) => {
     const { share_id } = req.params;
 
     const history = await db.query.queryHistoryTable.findFirst({
-      where: (table, { eq }) => eq(table.shareId, share_id),
+      where: (table: any, { eq }: any) => eq(table.shareId, share_id),
     });
 
     if (!history) {
