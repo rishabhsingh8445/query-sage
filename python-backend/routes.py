@@ -249,9 +249,9 @@ async def schema_chat(request: SchemaChatBody, user_id: str = Depends(get_curren
     recent = db.query(QueryHistory).filter(QueryHistory.user_id == user_id).order_by(desc(QueryHistory.created_at)).limit(50).all()
     query_history_context = ""
     if recent:
-        query_history_context = "Recent User Queries Context:\n"
+        query_history_context = "Recent User Queries Context (Newest first):\n"
         for i, q in enumerate(recent):
-            query_history_context += f"[Query {i+1} Date]: {q.created_at}\n[Query {i+1} Original]: {q.original_query}\n[Query {i+1} Optimized]: {q.optimized_query}\n\n"
+            query_history_context += f"--- Recent Query {i+1} ---\nDate: {q.created_at.strftime('%Y-%m-%d %H:%M:%S')} UTC\nOriginal: {q.original_query}\nOptimized: {q.optimized_query}\n\n"
             
     full_context = f"{schema_context}\n---\n{query_history_context}".strip()
     
