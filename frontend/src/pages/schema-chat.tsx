@@ -86,6 +86,7 @@ export default function SchemaChatPage() {
     setInput("");
     setMessages((prev) => [...prev, { role: "user", content: userMessage }]);
     setIsLoading(true);
+    let assistantMessageAdded = false;
 
     try {
       const token = await getToken();
@@ -106,6 +107,7 @@ export default function SchemaChatPage() {
       }
 
       setMessages((prev) => [...prev, { role: "assistant", content: "" }]);
+      assistantMessageAdded = true;
 
       const reader = response.body?.getReader();
       const decoder = new TextDecoder();
@@ -145,7 +147,9 @@ export default function SchemaChatPage() {
       }
     } catch (err) {
       toast.error("Failed to communicate with AI");
-      setMessages((prev) => prev.slice(0, -1)); // Remove the pending assistant message
+      if (assistantMessageAdded) {
+        setMessages((prev) => prev.slice(0, -1)); // Remove the pending assistant message
+      }
     } finally {
       setIsLoading(false);
     }
