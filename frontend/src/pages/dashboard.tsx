@@ -236,7 +236,7 @@ export default function DashboardPage() {
 
       if (!res.ok) {
         const errData = await res.json().catch(() => ({}));
-        throw new Error(errData.error || "Failed to start analysis");
+        throw new Error(errData.error || errData.detail || "Failed to start analysis");
       }
 
       const reader = res.body?.getReader();

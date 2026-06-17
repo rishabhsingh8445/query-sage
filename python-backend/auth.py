@@ -26,12 +26,22 @@ def get_current_user(request: Request):
     token = auth_header.split(" ")[1]
     
     try:
+        # Decode without verification to get the issuer
+        unverified_data = jwt.decode(token, options={"verify_signature": False})
+        issuer = unverified_data.get("iss")
+        
+        if not issuer:
+            raise HTTPException(status_code=401, detail="Token missing issuer")
+            
+        jwks_url = f"{issuer}/.well-known/jwks.json"
+        jwks_client = PyJWKClient(jwks_url)
+        
         signing_key = jwks_client.get_signing_key_from_jwt(token)
         data = jwt.decode(
             token,
             signing_key.key,
             algorithms=["RS256"],
-            # options={"verify_aud": False} # Adjust based on Clerk settings
+            options={"verify_aud": False} # Adjust based on Clerk settings
         )
         user_id = data.get("sub")
         if not user_id:
