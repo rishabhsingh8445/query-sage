@@ -335,9 +335,53 @@ async def estimate_index():
         "simulated": True
     }
 
-@router.get("/monitor/slow-queries")
-async def slow_queries():
-    return []
+class MonitorCredentials(BaseModel):
+    db_type: str
+    host: str
+    port: int
+    database: str
+    username: str
+    password: str
+
+@router.post("/monitor/slow-queries")
+async def slow_queries(creds: MonitorCredentials):
+    import asyncio
+    from sqlalchemy import create_engine, text
+    from fastapi.responses import JSONResponse
+
+    def fetch_queries():
+        try:
+            if creds.db_type.lower() == "postgresql":
+                db_url = f"postgresql://{creds.username}:{creds.password}@{creds.host}:{creds.port}/{creds.database}"
+                engine = create_engine(db_url, connect_args={"connect_timeout": 5})
+                with engine.connect() as conn:
+                    try:
+                        res = conn.execute(text("SELECT query, mean_exec_time as execution_time_ms, calls FROM pg_stat_statements WHERE query NOT ILIKE '%pg_stat_statements%' ORDER BY mean_exec_time DESC LIMIT 20"))
+                        queries = [{"query": row[0], "execution_time_ms": float(row[1]), "calls": row[2]} for row in res if row[0]]
+                    except Exception:
+                        res = conn.execute(text("SELECT query, EXTRACT(EPOCH FROM (now() - query_start)) * 1000 as execution_time_ms FROM pg_stat_activity WHERE state = 'active' AND query NOT ILIKE '%pg_stat_activity%' ORDER BY execution_time_ms DESC LIMIT 20"))
+                        queries = [{"query": row[0], "execution_time_ms": float(row[1] or 0), "calls": 1} for row in res if row[0]]
+                    return {"queries": queries}
+            elif creds.db_type.lower() == "mysql":
+                db_url = f"mysql+mysqlconnector://{creds.username}:{creds.password}@{creds.host}:{creds.port}/{creds.database}"
+                engine = create_engine(db_url, connect_args={"connect_timeout": 5})
+                with engine.connect() as conn:
+                    try:
+                        res = conn.execute(text("SELECT sql_text as query, max_timer_wait/1000000000000 as execution_time_ms, count_star as calls FROM performance_schema.events_statements_summary_by_digest ORDER BY max_timer_wait DESC LIMIT 20"))
+                        queries = [{"query": row[0], "execution_time_ms": float(row[1]), "calls": row[2]} for row in res if row[0]]
+                    except Exception:
+                        queries = []
+                    return {"queries": queries}
+            else:
+                return {"error": "Unsupported database type"}
+        except Exception as e:
+            return {"error": f"Failed to connect: {str(e)}"}
+
+    loop = asyncio.get_event_loop()
+    result = await loop.run_in_executor(None, fetch_queries)
+    if "error" in result:
+        return JSONResponse(status_code=400, content=result)
+    return result
 
 @router.get("/intelligence/history")
 async def intelligence_history(user_id: str = Depends(get_current_user), db: Session = Depends(get_db)):
