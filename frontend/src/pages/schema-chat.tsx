@@ -22,7 +22,7 @@ type Thread = {
 };
 
 export default function SchemaChatPage() {
-  const { chatMessages, setChatMessages } = useAppStore();
+  const { chatMessages, setChatMessages, currentThreadId, setCurrentThreadId } = useAppStore();
   const messages = chatMessages || [];
   const setMessages = setChatMessages;
   const [input, setInput] = useState("");
@@ -31,7 +31,6 @@ export default function SchemaChatPage() {
   const { getToken } = useAuth();
 
   const [threads, setThreads] = useState<Thread[]>([]);
-  const [currentThreadId, setCurrentThreadId] = useState<string | null>(null);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
   useEffect(() => {

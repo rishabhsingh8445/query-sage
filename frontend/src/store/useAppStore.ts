@@ -21,6 +21,9 @@ interface AppState {
 
   chatMessages: { role: "user" | "assistant"; content: string }[];
   setChatMessages: (msgs: { role: "user" | "assistant"; content: string }[] | ((prev: { role: "user" | "assistant"; content: string }[]) => { role: "user" | "assistant"; content: string }[])) => void;
+
+  currentThreadId: string | null;
+  setCurrentThreadId: (id: string | null) => void;
 }
 
 export const useAppStore = create<AppState>()(
@@ -59,10 +62,13 @@ export const useAppStore = create<AppState>()(
       setChatMessages: (msgs) => set((state) => ({
         chatMessages: typeof msgs === 'function' ? msgs(state.chatMessages) : msgs
       })),
+
+      currentThreadId: null,
+      setCurrentThreadId: (id) => set({ currentThreadId: id }),
     }),
     {
-      name: 'querysage-app-storage', // name of the item in the storage (must be unique)
-      partialize: (state) => ({ credentials: state.credentials, chatMessages: state.chatMessages }), 
+      name: 'querysage-app-storage',
+      partialize: (state) => ({ credentials: state.credentials, chatMessages: state.chatMessages, currentThreadId: state.currentThreadId }), 
     }
   )
 );
