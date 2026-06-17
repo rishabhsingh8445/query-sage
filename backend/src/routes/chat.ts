@@ -89,10 +89,81 @@ ${history.explanation}
 
 const SchemaChatBody = z.object({
   message: z.string(),
+  thread_id: z.string().optional(),
   chat_history: z.array(z.object({
     role: z.enum(["user", "assistant"]),
     content: z.string()
   })).optional().default([]),
+});
+
+import { schemaChatThreadsTable } from "@workspace/db";
+
+// Get all schema chat threads for the user
+router.get("/schema-chat/threads", async (req, res): Promise<void> => {
+  const auth = getAuth(req);
+  if (!auth.userId) {
+    res.status(401).json({ error: "Unauthorized" });
+    return;
+  }
+
+  try {
+    const threads = await db
+      .select({ id: schemaChatThreadsTable.id, title: schemaChatThreadsTable.title, createdAt: schemaChatThreadsTable.createdAt })
+      .from(schemaChatThreadsTable)
+      .where(eq(schemaChatThreadsTable.userId, auth.userId))
+      .orderBy(desc(schemaChatThreadsTable.createdAt));
+    
+    res.json(threads);
+  } catch (err) {
+    req.log.error({ err }, "Failed to fetch schema chat threads");
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+// Get a specific thread
+router.get("/schema-chat/threads/:id", async (req, res): Promise<void> => {
+  const auth = getAuth(req);
+  if (!auth.userId) {
+    res.status(401).json({ error: "Unauthorized" });
+    return;
+  }
+
+  try {
+    const [thread] = await db
+      .select()
+      .from(schemaChatThreadsTable)
+      .where(and(eq(schemaChatThreadsTable.id, req.params.id), eq(schemaChatThreadsTable.userId, auth.userId)));
+    
+    if (!thread) {
+      res.status(404).json({ error: "Thread not found" });
+      return;
+    }
+
+    res.json(thread);
+  } catch (err) {
+    req.log.error({ err }, "Failed to fetch schema chat thread");
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+// Delete a thread
+router.delete("/schema-chat/threads/:id", async (req, res): Promise<void> => {
+  const auth = getAuth(req);
+  if (!auth.userId) {
+    res.status(401).json({ error: "Unauthorized" });
+    return;
+  }
+
+  try {
+    await db
+      .delete(schemaChatThreadsTable)
+      .where(and(eq(schemaChatThreadsTable.id, req.params.id), eq(schemaChatThreadsTable.userId, auth.userId)));
+    
+    res.json({ success: true });
+  } catch (err) {
+    req.log.error({ err }, "Failed to delete schema chat thread");
+    res.status(500).json({ error: "Internal server error" });
+  }
 });
 
 // New Schema-Aware RAG Chat Endpoint
@@ -173,8 +244,26 @@ ${queryHistoryContext}
       }
     };
 
-    const currentChat = [...chat_history];
+    let threadId = parsed.data.thread_id;
+    let currentChat = [...chat_history];
     currentChat.push({ role: "user", content: message });
+
+    if (!threadId) {
+      const [newThread] = await db.insert(schemaChatThreadsTable).values({
+        userId: auth.userId,
+        title: message.substring(0, 50) + (message.length > 50 ? "..." : ""),
+        messages: currentChat,
+      }).returning();
+      threadId = newThread.id;
+    } else {
+      // Just to ensure it exists
+      const [existingThread] = await db.select().from(schemaChatThreadsTable).where(and(eq(schemaChatThreadsTable.id, threadId), eq(schemaChatThreadsTable.userId, auth.userId)));
+      if (!existingThread) {
+        throw new Error("Thread not found");
+      }
+    }
+
+    sendEvent("thread_id", { thread_id: threadId });
 
     const fullResponse = await streamChatResponse({
       chatHistory: currentChat,
@@ -183,6 +272,12 @@ ${queryHistoryContext}
         sendEvent("chunk", chunk);
       }
     });
+
+    currentChat.push({ role: "assistant", content: fullResponse });
+
+    await db.update(schemaChatThreadsTable)
+      .set({ messages: currentChat, updatedAt: new Date() })
+      .where(and(eq(schemaChatThreadsTable.id, threadId!), eq(schemaChatThreadsTable.userId, auth.userId)));
 
     sendEvent("done", { success: true });
     res.end();
