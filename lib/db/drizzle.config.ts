@@ -14,4 +14,5 @@ export default defineConfig({
   dbCredentials: {
     url: process.env.DATABASE_URL,
   },
+  tablesFilter: ["query_history", "schema_chat_threads"],
 });
