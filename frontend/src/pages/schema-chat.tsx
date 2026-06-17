@@ -134,6 +134,8 @@ export default function SchemaChatPage() {
 
       if (!reader) return;
 
+      let currentEvent = "";
+
       while (true) {
         const { done, value } = await reader.read();
         if (done) break;
@@ -142,20 +144,34 @@ export default function SchemaChatPage() {
         const lines = chunk.split("\n");
 
         for (const line of lines) {
-          if (line.startsWith("event: thread_id")) {
-            // Need to read the data line next, so we let the generic data handler handle it?
-            // Actually, server sends: event: thread_id\ndata: {"thread_id": "..."}
-          } else if (line.startsWith("event: chunk") || line.startsWith("event: done")) {
-            continue;
+          if (line.startsWith("event: ")) {
+            currentEvent = line.replace("event: ", "").trim();
           } else if (line.startsWith("data: ")) {
             const dataStr = line.replace("data: ", "").trim();
             if (!dataStr) continue;
+            
+            if (currentEvent === "error") {
+              try {
+                const errorMsg = JSON.parse(dataStr);
+                toast.error(errorMsg);
+                setMessages((prev: ChatMessage[]) => {
+                  const newMsgs = [...(prev || [])];
+                  // Remove the blank assistant message we added
+                  if (newMsgs[newMsgs.length - 1]?.role === "assistant" && !newMsgs[newMsgs.length - 1].content) {
+                    return newMsgs.slice(0, -1);
+                  }
+                  return newMsgs;
+                });
+              } catch (e) {}
+              continue;
+            }
+
             try {
               const data = JSON.parse(dataStr);
               if (data.thread_id) {
                 setCurrentThreadId(data.thread_id);
                 fetchThreads(); // Refresh thread list
-              } else if (typeof data === "string") {
+              } else if (typeof data === "string" && currentEvent !== "error") {
                 setMessages((prev: ChatMessage[]) => {
                   const newMsgs = [...(prev || [])];
                   const last = newMsgs[newMsgs.length - 1];
