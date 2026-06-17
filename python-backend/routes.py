@@ -363,10 +363,10 @@ async def slow_queries(creds: MonitorCredentials):
                 engine = create_engine(db_url, connect_args={"connect_timeout": 5})
                 with engine.connect() as conn:
                     try:
-                        res = conn.execute(text("SELECT query, mean_exec_time as execution_time_ms, calls FROM pg_stat_statements WHERE query NOT ILIKE '%pg_stat_statements%' ORDER BY mean_exec_time DESC LIMIT 20"))
+                        res = conn.execute(text("SELECT query, mean_exec_time as execution_time_ms, calls FROM pg_stat_statements WHERE query NOT ILIKE '%pg_stat_statements%' AND query NOT ILIKE '%pg_catalog%' AND query NOT ILIKE '%neon_migration%' AND query NOT ILIKE '%health_check%' ORDER BY mean_exec_time DESC LIMIT 20"))
                         queries = [{"query": row[0], "execution_time_ms": float(row[1]), "calls": row[2]} for row in res if row[0]]
                     except Exception:
-                        res = conn.execute(text("SELECT query, EXTRACT(EPOCH FROM (now() - query_start)) * 1000 as execution_time_ms FROM pg_stat_activity WHERE state = 'active' AND query NOT ILIKE '%pg_stat_activity%' ORDER BY execution_time_ms DESC LIMIT 20"))
+                        res = conn.execute(text("SELECT query, EXTRACT(EPOCH FROM (now() - query_start)) * 1000 as execution_time_ms FROM pg_stat_activity WHERE state = 'active' AND query NOT ILIKE '%pg_stat_activity%' AND query NOT ILIKE '%pg_catalog%' AND query NOT ILIKE '%neon_migration%' AND query NOT ILIKE '%health_check%' ORDER BY execution_time_ms DESC LIMIT 20"))
                         queries = [{"query": row[0], "execution_time_ms": float(row[1] or 0), "calls": 1} for row in res if row[0]]
                     return {"queries": queries}
             elif creds.db_type.lower() == "mysql":

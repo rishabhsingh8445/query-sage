@@ -85,15 +85,24 @@ def create_tools(db_config: DbConfig, on_trace):
     def run_explain(query: str) -> str:
         """Run EXPLAIN ANALYZE on a SQL query to get the execution plan and cost."""
         if on_trace: on_trace(f"✓ Running Explain")
+        
+        upper_query = query.strip().upper()
+        if upper_query.startswith(("DO ", "CREATE ", "ALTER ", "DROP ", "GRANT ", "REVOKE ")):
+            return "EXPLAIN is not supported for DDL or DO blocks. Please analyze the query conceptually without running EXPLAIN."
+            
+        import re
+        explainable_query = re.sub(r'\$\d+', 'NULL', query)
+        explainable_query = explainable_query.replace('?', 'NULL')
+        
         try:
             if db_config.db_type == "postgresql":
-                rows = execute_query(f"EXPLAIN (ANALYZE, FORMAT JSON) {query}")
+                rows = execute_query(f"EXPLAIN (ANALYZE, FORMAT JSON) {explainable_query}")
                 return json.dumps(rows, indent=2)
             else:
-                rows = execute_query(f"EXPLAIN FORMAT=JSON {query}")
+                rows = execute_query(f"EXPLAIN FORMAT=JSON {explainable_query}")
                 return json.dumps(rows, indent=2)
         except Exception as e:
-            return f"Error running EXPLAIN: {str(e)}"
+            return f"Error running EXPLAIN: {str(e)}. If this is due to missing parameters, replace them with dummy values in your query."
 
     @tool
     def analyze_cost(explain_json: str) -> str:
