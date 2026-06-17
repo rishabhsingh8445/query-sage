@@ -343,7 +343,19 @@ async def intelligence_history(user_id: str = Depends(get_current_user), db: Ses
 @router.get("/history")
 async def get_history(user_id: str = Depends(get_current_user), db: Session = Depends(get_db)):
     recent = db.query(QueryHistory).filter(QueryHistory.user_id == user_id).order_by(desc(QueryHistory.created_at)).all()
-    return [{"id": q.id, "original_query": q.original_query, "optimized_query": q.optimized_query, "explanation": q.explanation, "bottlenecks": q.bottlenecks, "suggested_indexes": q.suggested_indexes, "created_at": q.created_at.isoformat()} for q in recent]
+    return [{
+        "id": q.id, 
+        "original_query": q.original_query, 
+        "optimized_query": q.optimized_query, 
+        "explanation": q.explanation, 
+        "bottlenecks": q.bottlenecks, 
+        "suggested_indexes": q.suggested_indexes, 
+        "created_at": q.created_at.isoformat(),
+        "estimated_improvement": q.estimated_improvement,
+        "execution_plan_summary": q.execution_plan_summary,
+        "db_type": q.db_type,
+        "query_complexity_score": q.query_complexity_score
+    } for q in recent]
 
 @router.get("/history/{id}")
 async def get_history_entry(id: int, user_id: str = Depends(get_current_user), db: Session = Depends(get_db)):

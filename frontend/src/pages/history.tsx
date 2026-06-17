@@ -181,8 +181,8 @@ export default function HistoryPage() {
                     {entry.db_type}
                   </Badge>
                   <span className="text-[10px] text-muted-foreground text-center">
-                    {format(new Date(entry.created_at), "MMM d")} <br />
-                    {format(new Date(entry.created_at), "HH:mm")}
+                    {format(new Date(entry.created_at + (entry.created_at.endsWith('Z') ? '' : 'Z')), "MMM d")} <br />
+                    {format(new Date(entry.created_at + (entry.created_at.endsWith('Z') ? '' : 'Z')), "HH:mm")}
                   </span>
                 </div>
                 
@@ -345,14 +345,20 @@ export default function HistoryPage() {
               ) : selectedEntry ? (
                 <div className="space-y-8">
                   <div className="rounded-lg border border-green-500/30 bg-green-500/10 p-4 flex items-start justify-between gap-4">
-                    <div>
-                      <h2 className="text-lg font-bold text-green-500 flex items-center gap-2">
-                        <Badge variant="outline" className="bg-green-500/20 text-green-400 border-green-500/30">
-                          ~{selectedEntry.estimated_improvement}
-                        </Badge>
+                    <div className="rounded-full bg-green-500/20 p-2 shrink-0">
+                      <CheckCircle2 className="h-6 w-6 text-green-500" />
+                    </div>
+                    <div className="w-full">
+                      <h2 className="text-lg font-bold text-green-600 flex flex-wrap items-center gap-2">
+                        Optimization Successful
+                        {selectedEntry.estimated_improvement && (
+                          <Badge variant="outline" className="bg-green-500/10 text-green-700 border-green-500/30 whitespace-normal text-left mt-1 sm:mt-0">
+                            ~{selectedEntry.estimated_improvement}
+                          </Badge>
+                        )}
                       </h2>
-                      <p className="text-sm text-green-400/80 mt-1">
-                        {selectedEntry.execution_plan_summary}
+                      <p className="text-sm text-green-700 mt-1 min-h-[20px]">
+                        {selectedEntry.explanation}
                       </p>
                     </div>
                     {selectedEntry.query_complexity_score !== undefined && selectedEntry.query_complexity_score > 0 && (
