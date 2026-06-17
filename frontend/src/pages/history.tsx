@@ -314,7 +314,7 @@ export default function HistoryPage() {
                       try {
                         setIsSharing(true);
                         const res = await createShare({ history_id: selectedEntry.id });
-                        const url = `${window.location.origin}/share/${res.share_id}`;
+                        const url = `${window.location.origin}/share/${res.shareId || (res as any).share_id}`;
                         navigator.clipboard.writeText(url);
                         
                         toast({ title: "Link Generated & Copied!", description: "Share link copied to clipboard" });
