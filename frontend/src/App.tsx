@@ -13,7 +13,7 @@ const SharePage = lazy(() => import("./pages/share"));
 const MonitorPage = lazy(() => import("./pages/monitor"));
 const BuilderPage = lazy(() => import("./pages/builder"));
 const SchemaChatPage = lazy(() => import("./pages/schema-chat"));
-const MigratePage = lazy(() => import("./pages/migrate"));
+
 const NotFound = lazy(() => import("./pages/not-found"));
 import { setAuthTokenGetter } from "@workspace/api-client-react";
 import { AppLayout } from "./components/layout/app-layout";
@@ -226,7 +226,7 @@ function ClerkProviderWithRoutes() {
               <Route path="/monitor"><AppLayout><MonitorPage /></AppLayout></Route>
               <Route path="/builder"><AppLayout><BuilderPage /></AppLayout></Route>
               <Route path="/schema-chat"><AppLayout><SchemaChatPage /></AppLayout></Route>
-              <Route path="/migrate"><AppLayout><MigratePage /></AppLayout></Route>
+
               <Route path="/share/:id" component={SharePage} />
               <Route component={NotFound} />
             </Switch>

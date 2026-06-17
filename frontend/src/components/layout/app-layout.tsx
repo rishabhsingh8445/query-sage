@@ -26,7 +26,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
     { name: "History", href: "/history", icon: Clock },
     { name: "Stats", href: "/stats", icon: Activity },
     { name: "Schema Chat", href: "/schema-chat", icon: MessageSquare },
-    { name: "Migration Assistant", href: "/migrate", icon: ArrowRightLeft },
+
   ];
 
   return (

@@ -377,50 +377,6 @@ async def get_stats(user_id: str = Depends(get_current_user), db: Session = Depe
         "top_bottleneck_types": top_bottlenecks
     }
 
-class MigrateBody(BaseModel):
-    query: str
-    source_db: str
-    target_db: str
-
-@router.post("/migrate")
-async def run_migration(request: MigrateBody, user_id: str = Depends(get_current_user)):
-    from llm import llm
-    from langchain_core.messages import HumanMessage, SystemMessage
-    import asyncio
-    try:
-        prompt = f"""You are an expert database administrator and SQL developer.
-Translate the following SQL query from {request.source_db} to {request.target_db}.
-Provide the translated SQL query in a markdown code block, and a brief explanation.
-Original Query:
-```sql
-{request.query}
-```
-"""
-        messages = [
-            SystemMessage(content="You are a SQL migration assistant. Always output the migrated SQL in a ```sql block and provide a concise explanation."),
-            HumanMessage(content=prompt)
-        ]
-        # Use run_in_executor to avoid hanging if ainvoke gets stuck
-        loop = asyncio.get_event_loop()
-        response = await loop.run_in_executor(None, lambda: llm.invoke(messages))
-        
-        content = response.content
-        migrated_query = ""
-        explanation = content
-        
-        match = re.search(r'```(?:sql)?\s*([\s\S]*?)\s*```', content, re.IGNORECASE)
-        if match:
-            migrated_query = match.group(1).strip()
-            explanation = content.replace(match.group(0), "").strip()
-            
-        return {
-            "original_query": request.query,
-            "migrated_query": migrated_query,
-            "explanation": explanation
-        }
-    except Exception as e:
-        from fastapi import HTTPException
-        raise HTTPException(status_code=500, detail=str(e))
 
 @router.get("/healthz")
 async def healthz():
