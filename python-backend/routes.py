@@ -343,19 +343,86 @@ async def get_history_entry(id: int, user_id: str = Depends(get_current_user), d
 async def get_stats():
     return {"total_queries": 0, "avg_improvement": "0%", "bottlenecks_found": 0}
 
+class MigrateBody(BaseModel):
+    query: str
+    source_db: str
+    target_db: str
+
 @router.post("/migrate")
-async def run_migration():
-    return {"success": True}
+async def run_migration(request: MigrateBody, user_id: str = Depends(get_current_user)):
+    from langchain_nvidia_ai_endpoints import ChatNVIDIA
+    from langchain_core.messages import HumanMessage, SystemMessage
+    try:
+        llm = ChatNVIDIA(model="meta/llama-3.1-70b-instruct")
+        prompt = f"""You are an expert database administrator and SQL developer.
+Translate the following SQL query from {request.source_db} to {request.target_db}.
+Provide the translated SQL query in a markdown code block, and a brief explanation.
+Original Query:
+```sql
+{request.query}
+```
+"""
+        messages = [
+            SystemMessage(content="You are a SQL migration assistant. Always output the migrated SQL in a ```sql block and provide a concise explanation."),
+            HumanMessage(content=prompt)
+        ]
+        response = await llm.ainvoke(messages)
+        
+        content = response.content
+        migrated_query = ""
+        explanation = content
+        
+        match = re.search(r'```(?:sql)?\s*([\s\S]*?)\s*```', content, re.IGNORECASE)
+        if match:
+            migrated_query = match.group(1).strip()
+            explanation = content.replace(match.group(0), "").strip()
+            
+        return {
+            "original_query": request.query,
+            "migrated_query": migrated_query,
+            "explanation": explanation
+        }
+    except Exception as e:
+        from fastapi import HTTPException
+        raise HTTPException(status_code=500, detail=str(e))
 
 @router.get("/healthz")
 async def healthz():
     return {"status": "ok", "message": "Python backend is running!"}
 
+class ShareBody(BaseModel):
+    history_id: int
+
 @router.post("/share")
-async def share_query():
-    return {"shareId": "dummy-share-id"}
+async def share_query(request: ShareBody, user_id: str = Depends(get_current_user), db: Session = Depends(get_db)):
+    import uuid
+    history = db.query(QueryHistory).filter(QueryHistory.id == request.history_id, QueryHistory.user_id == user_id).first()
+    if not history:
+        from fastapi import HTTPException
+        raise HTTPException(status_code=404, detail="Not found")
+    
+    if not history.share_id:
+        history.share_id = str(uuid.uuid4())
+        db.commit()
+        
+    return {"shareId": history.share_id}
 
 @router.get("/share/{shareId}")
-async def get_shared_query(shareId: str):
-    from fastapi import HTTPException
-    raise HTTPException(status_code=404, detail="Shared query not found")
+async def get_shared_query(shareId: str, db: Session = Depends(get_db)):
+    history = db.query(QueryHistory).filter(QueryHistory.share_id == shareId).first()
+    if not history:
+        from fastapi import HTTPException
+        raise HTTPException(status_code=404, detail="Shared query not found")
+        
+    return {
+        "id": history.id,
+        "original_query": history.original_query,
+        "optimized_query": history.optimized_query,
+        "explanation": history.explanation,
+        "bottlenecks": history.bottlenecks,
+        "suggested_indexes": history.suggested_indexes,
+        "execution_plan_summary": history.execution_plan_summary,
+        "query_complexity_score": history.query_complexity_score,
+        "db_type": history.db_type,
+        "created_at": history.created_at.isoformat()
+    }
