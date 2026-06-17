@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Clock, Search, Trash2, ChevronRight, Copy, Loader2, Share2, Download, ArrowLeft, Database, ShieldAlert, Cpu } from "lucide-react";
+import { Clock, Search, Trash2, ChevronRight, Copy, Loader2, Share2, Download, ArrowLeft, Database, ShieldAlert, Cpu, CheckCircle2 } from "lucide-react";
 import { format } from "date-fns";
 import { format as formatSql } from "sql-formatter";
 import { 

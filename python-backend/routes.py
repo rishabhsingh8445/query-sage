@@ -338,7 +338,49 @@ async def slow_queries():
 @router.get("/intelligence/history")
 async def intelligence_history(user_id: str = Depends(get_current_user), db: Session = Depends(get_db)):
     recent = db.query(QueryHistory).filter(QueryHistory.user_id == user_id).order_by(desc(QueryHistory.created_at)).limit(50).all()
-    return [{"id": q.id, "original_query": q.original_query, "optimized_query": q.optimized_query, "created_at": q.created_at.isoformat()} for q in recent]
+    
+    if not recent:
+        return {
+            "overall_health_score": 100,
+            "summary": "No query history available to analyze.",
+            "common_bottlenecks": [],
+            "suggested_indexes": []
+        }
+
+    complexities = [q.query_complexity_score for q in recent if q.query_complexity_score is not None]
+    health_score = max(0, min(100, int(100 - (sum(complexities) / len(complexities))))) if complexities else 85
+
+    bottleneck_counts = {}
+    for q in recent:
+        if isinstance(q.bottlenecks, list):
+            for b in q.bottlenecks:
+                b_type = b.get("type", "Unknown") if isinstance(b, dict) else str(b)
+                bottleneck_counts[b_type] = bottleneck_counts.get(b_type, 0) + 1
+    
+    common_bottlenecks = [f"{k} ({v} times)" for k, v in sorted(bottleneck_counts.items(), key=lambda item: item[1], reverse=True)[:4]]
+
+    suggested_indexes = []
+    seen = set()
+    for q in recent:
+        if isinstance(q.suggested_indexes, list):
+            for idx in q.suggested_indexes:
+                statement = idx if isinstance(idx, str) else idx.get("statement", "")
+                if statement and statement not in seen:
+                    seen.add(statement)
+                    suggested_indexes.append(idx)
+                if len(suggested_indexes) >= 5:
+                    break
+        if len(suggested_indexes) >= 5:
+            break
+
+    summary = f"Analyzed {len(recent)} recent queries. The overall database query health is {'Good' if health_score > 70 else 'Needs Improvement'}. Consider addressing the recurring bottlenecks."
+
+    return {
+        "overall_health_score": health_score,
+        "summary": summary,
+        "common_bottlenecks": common_bottlenecks,
+        "suggested_indexes": suggested_indexes
+    }
 
 @router.get("/history")
 async def get_history(user_id: str = Depends(get_current_user), db: Session = Depends(get_db)):
