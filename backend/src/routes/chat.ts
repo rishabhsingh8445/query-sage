@@ -208,7 +208,8 @@ router.post("/schema-chat", async (req, res): Promise<void> => {
     const recentQueries = await db
       .select({ 
         originalQuery: queryHistoryTable.originalQuery,
-        optimizedQuery: queryHistoryTable.optimizedQuery 
+        optimizedQuery: queryHistoryTable.optimizedQuery,
+        createdAt: queryHistoryTable.createdAt
       })
       .from(queryHistoryTable)
       .where(eq(queryHistoryTable.userId, auth.userId))
@@ -219,7 +220,8 @@ router.post("/schema-chat", async (req, res): Promise<void> => {
     if (recentQueries.length > 0) {
       queryHistoryContext = "Recent User Queries Context (Up to 50 latest):\n";
       recentQueries.forEach((q: any, i: number) => {
-        queryHistoryContext += `[Query ${i+1} Original]: ${q.originalQuery}\n[Query ${i+1} Optimized]: ${q.optimizedQuery}\n\n`;
+        const dateStr = q.createdAt ? new Date(q.createdAt).toISOString() : 'Unknown Date';
+        queryHistoryContext += `[Query ${i+1} Original]: ${q.originalQuery}\n[Query ${i+1} Optimized]: ${q.optimizedQuery}\n[Query ${i+1} Date]: ${dateStr}\n\n`;
       });
     }
 
