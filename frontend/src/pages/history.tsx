@@ -255,7 +255,7 @@ export default function HistoryPage() {
                     onClick={() => {
                       const lines = [];
                       lines.push(`# QuerySage Optimization Report`);
-                      lines.push(`**Database Engine:** ${selectedEntry.db_type.toUpperCase()}`);
+                      lines.push(`**Database Engine:** ${(selectedEntry.db_type || 'Unknown').toUpperCase()}`);
                       if (selectedEntry.estimated_improvement) lines.push(`**Estimated Improvement:** ${selectedEntry.estimated_improvement}`);
                       if (selectedEntry.query_complexity_score) lines.push(`**Query Complexity Score:** ${selectedEntry.query_complexity_score}/100`);
                       lines.push(`\n## Optimization Strategy`);

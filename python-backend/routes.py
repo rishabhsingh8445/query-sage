@@ -405,7 +405,20 @@ async def get_history_entry(id: int, user_id: str = Depends(get_current_user), d
     if not q:
         from fastapi import HTTPException
         raise HTTPException(status_code=404, detail="Not found")
-    return {"id": q.id, "original_query": q.original_query, "optimized_query": q.optimized_query, "explanation": q.explanation, "bottlenecks": q.bottlenecks, "suggested_indexes": q.suggested_indexes, "execution_plan_summary": q.execution_plan_summary, "query_complexity_score": q.query_complexity_score, "created_at": q.created_at.isoformat()}
+    return {
+        "id": q.id, 
+        "original_query": q.original_query, 
+        "optimized_query": q.optimized_query, 
+        "explanation": q.explanation, 
+        "bottlenecks": q.bottlenecks, 
+        "suggested_indexes": q.suggested_indexes, 
+        "execution_plan_summary": q.execution_plan_summary, 
+        "query_complexity_score": q.query_complexity_score, 
+        "db_type": q.db_type,
+        "estimated_improvement": q.estimated_improvement,
+        "share_id": q.share_id,
+        "created_at": q.created_at.isoformat()
+    }
 
 @router.get("/stats")
 async def get_stats(user_id: str = Depends(get_current_user), db: Session = Depends(get_db)):
