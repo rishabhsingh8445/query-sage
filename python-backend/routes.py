@@ -199,6 +199,7 @@ class SchemaChatBody(BaseModel):
     message: str
     thread_id: Optional[str] = None
     chat_history: Optional[List[Dict]] = []
+    timezone_offset: Optional[int] = 0
 
 from models import SchemaChatThread
 from rag import search_relevant_schema
@@ -250,8 +251,11 @@ async def schema_chat(request: SchemaChatBody, user_id: str = Depends(get_curren
     query_history_context = ""
     if recent:
         query_history_context = "Recent User Queries Context (Newest first):\n"
+        from datetime import timedelta
+        offset_minutes = request.timezone_offset or 0
         for i, q in enumerate(recent):
-            query_history_context += f"--- Recent Query {i+1} ---\nDate: {q.created_at.strftime('%Y-%m-%d %H:%M:%S')} UTC\nOriginal: {q.original_query}\nOptimized: {q.optimized_query}\n\n"
+            local_dt = q.created_at - timedelta(minutes=offset_minutes)
+            query_history_context += f"--- Recent Query {i+1} ---\nDate (User Local Time): {local_dt.strftime('%Y-%m-%d %I:%M:%S %p')}\nOriginal: {q.original_query}\nOptimized: {q.optimized_query}\n\n"
             
     full_context = f"{schema_context}\n---\n{query_history_context}".strip()
     

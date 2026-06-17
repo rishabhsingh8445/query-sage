@@ -119,6 +119,7 @@ export default function SchemaChatPage() {
           message: userMessage,
           chat_history: messages,
           thread_id: currentThreadId || undefined,
+          timezone_offset: new Date().getTimezoneOffset(),
         }),
       });
 
