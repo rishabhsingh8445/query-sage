@@ -135,17 +135,20 @@ router.post("/schema-chat", async (req, res): Promise<void> => {
 
     // 2. Fetch recent query history for context
     const recentQueries = await db
-      .select({ originalQuery: queryHistoryTable.originalQuery })
+      .select({ 
+        originalQuery: queryHistoryTable.originalQuery,
+        optimizedQuery: queryHistoryTable.optimizedQuery 
+      })
       .from(queryHistoryTable)
       .where(eq(queryHistoryTable.userId, auth.userId))
       .orderBy(desc(queryHistoryTable.createdAt))
-      .limit(5);
+      .limit(50);
 
     let queryHistoryContext = "";
     if (recentQueries.length > 0) {
-      queryHistoryContext = "Recent User Queries Context:\n";
+      queryHistoryContext = "Recent User Queries Context (Up to 50 latest):\n";
       recentQueries.forEach((q, i) => {
-        queryHistoryContext += `[Query ${i+1}]: ${q.originalQuery}\n`;
+        queryHistoryContext += `[Query ${i+1} Original]: ${q.originalQuery}\n[Query ${i+1} Optimized]: ${q.optimizedQuery}\n\n`;
       });
     }
 

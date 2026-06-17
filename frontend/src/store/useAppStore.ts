@@ -18,6 +18,9 @@ interface AppState {
   parsedNodes: any[];
   setRawSchema: (schema: string) => void;
   setParsedNodes: (nodes: any[]) => void;
+
+  chatMessages: { role: "user" | "assistant"; content: string }[];
+  setChatMessages: (msgs: { role: "user" | "assistant"; content: string }[] | ((prev: { role: "user" | "assistant"; content: string }[]) => { role: "user" | "assistant"; content: string }[])) => void;
 }
 
 export const useAppStore = create<AppState>()(
@@ -51,10 +54,15 @@ export const useAppStore = create<AppState>()(
       parsedNodes: [],
       setRawSchema: (rawSchema) => set({ rawSchema }),
       setParsedNodes: (parsedNodes) => set({ parsedNodes }),
+
+      chatMessages: [],
+      setChatMessages: (msgs) => set((state) => ({
+        chatMessages: typeof msgs === 'function' ? msgs(state.chatMessages) : msgs
+      })),
     }),
     {
       name: 'querysage-app-storage', // name of the item in the storage (must be unique)
-      partialize: (state) => ({ credentials: state.credentials }), // Only persist credentials, not the huge parsed nodes array
+      partialize: (state) => ({ credentials: state.credentials, chatMessages: state.chatMessages }), 
     }
   )
 );

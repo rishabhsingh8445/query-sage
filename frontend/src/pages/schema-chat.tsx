@@ -14,7 +14,7 @@ type ChatMessage = {
 };
 
 export default function SchemaChatPage() {
-  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const { chatMessages: messages, setChatMessages: setMessages } = useAppStore();
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
