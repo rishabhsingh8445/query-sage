@@ -3,6 +3,7 @@ import { getAuth } from "@clerk/express";
 import { db, queryHistoryTable } from "@workspace/db";
 import { AnalyzeQueryBody, AnalyzeQueryResponse } from "@workspace/api-zod";
 import { optimizeQuery, streamOptimizeQuery } from "../lib/llmService";
+import { storeSchemaChunk } from "../lib/ragService";
 import { parseExplainOutput } from "../lib/explainParser";
 import pg from "pg";
 import rateLimit from "express-rate-limit";
@@ -128,6 +129,16 @@ router.post("/analyze", analyzeLimiter, async (req, res): Promise<void> => {
         dbType: db_type,
       }).returning({ id: queryHistoryTable.id });
       savedId = saved?.id ?? null;
+
+      try {
+        if (schema) {
+          await storeSchemaChunk(userId, "Automated_Schema", schema);
+        }
+        const queryContext = `Query: ${query}\nOptimized: ${llmResult.optimized_query || ""}\nExplanation: ${llmResult.explanation || ""}`;
+        await storeSchemaChunk(userId, "Automated_Query_History", queryContext);
+      } catch(qErr) {
+        req.log.warn({ qErr }, "Failed to automatically sync to Qdrant in analyze");
+      }
     } catch (err) {
       req.log.warn({ err }, "Failed to save query to history");
     }
@@ -312,6 +323,16 @@ router.post("/analyze-stream", analyzeLimiter, async (req, res): Promise<void> =
       }).returning({ id: queryHistoryTable.id });
       savedId = saved?.id ?? null;
       sendEvent("savedId", savedId);
+
+      try {
+        if (schema) {
+          await storeSchemaChunk(userId, "Automated_Schema", schema);
+        }
+        const queryContext = `Query: ${query}\nOptimized: ${llmResult.optimized_query || ""}\nExplanation: ${llmResult.explanation || ""}`;
+        await storeSchemaChunk(userId, "Automated_Query_History", queryContext);
+      } catch(qErr) {
+        req.log.warn({ qErr }, "Failed to automatically sync to Qdrant in analyze-stream");
+      }
     } catch (err) {
       req.log.warn({ err }, "Failed to save query to history");
     }

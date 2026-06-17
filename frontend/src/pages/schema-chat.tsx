@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from "react";
-import { MessageSquare, Send, Database, Loader2, RefreshCw } from "lucide-react";
+import { MessageSquare, Send, Database, Loader2 } from "lucide-react";
 import { useAuth } from "@clerk/react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -7,7 +7,6 @@ import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { toast } from "sonner";
 import ReactMarkdown from "react-markdown";
-import { useAppStore } from "@/store/useAppStore";
 
 type ChatMessage = {
   role: "user" | "assistant";
@@ -18,66 +17,14 @@ export default function SchemaChatPage() {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
-  const [isSyncing, setIsSyncing] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const { getToken } = useAuth();
-  const { rawSchema, parsedNodes } = useAppStore();
 
   useEffect(() => {
     if (scrollRef.current) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
   }, [messages]);
-
-  const handleSyncSchema = async () => {
-    if (!rawSchema) {
-      toast.error("No schema found. Please define it in the Dashboard first.");
-      return;
-    }
-    
-    setIsSyncing(true);
-    try {
-      const token = await getToken();
-      const baseUrl = import.meta.env.VITE_API_URL || "";
-      
-      if (parsedNodes && parsedNodes.length > 0) {
-        // Sync each table
-        for (const node of parsedNodes) {
-          if (!node.data?.columns) continue;
-          const ddl = `CREATE TABLE ${node.data.tableName} (${node.data.columns.map((c: any) => `${c.name} ${c.type}`).join(', ')});`;
-          await fetch(`${baseUrl}/api/schema/sync`, {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              ...(token ? { Authorization: `Bearer ${token}` } : {})
-            },
-            body: JSON.stringify({
-              table_name: node.data.tableName,
-              schema_ddl: ddl,
-            }),
-          });
-        }
-      } else {
-        // Sync raw schema as a single chunk
-        await fetch(`${baseUrl}/api/schema/sync`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            ...(token ? { Authorization: `Bearer ${token}` } : {})
-          },
-          body: JSON.stringify({
-            table_name: "Full_Schema",
-            schema_ddl: rawSchema,
-          }),
-        });
-      }
-      toast.success("Schema successfully synced to Vector DB!");
-    } catch(err) {
-      toast.error("Failed to sync schema");
-    } finally {
-      setIsSyncing(false);
-    }
-  };
 
   const handleSend = async () => {
     if (!input.trim()) return;
@@ -166,15 +113,11 @@ export default function SchemaChatPage() {
       </div>
 
       <Card className="flex-1 flex flex-col min-h-0 border-border shadow-sm">
-        <CardHeader className="border-b border-border bg-muted/30 py-3 flex flex-row items-center justify-between">
+        <CardHeader className="border-b border-border bg-muted/30 py-3">
           <div className="flex items-center">
             <Database className="w-5 h-5 mr-2 text-primary" />
             <CardTitle className="text-base font-medium">QuerySage Assistant</CardTitle>
           </div>
-          <Button variant="outline" size="sm" onClick={handleSyncSchema} disabled={isSyncing || !rawSchema}>
-            {isSyncing ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <RefreshCw className="w-4 h-4 mr-2" />}
-            Sync Schema Context
-          </Button>
         </CardHeader>
         <CardContent className="flex-1 flex flex-col p-0 min-h-0">
           <ScrollArea className="flex-1 p-4" ref={scrollRef}>
