@@ -185,7 +185,7 @@ export async function streamChatResponse(params: {
   logger.info("Calling NVIDIA NIM API for follow-up chat");
 
   const stream = await client.chat.completions.create({
-    model: "meta/llama-3.3-70b-instruct",
+    model: "meta/llama-3.1-8b-instruct", // Faster model for chat
     messages,
     temperature: 0.5,
     max_tokens: 1000,
