@@ -53,7 +53,7 @@ def create_tools(db_config: DbConfig, on_trace):
     @tool
     def get_schema(tables: list[str]) -> str:
         """Fetch the schema (columns, data types) for a specific table or list of tables."""
-        if on_trace: on_trace(f"  -> Using tool: get_schema for {tables}")
+        if on_trace: on_trace(f"✓ Reading Schema for {tables}")
         try:
             result = ""
             for table in tables:
@@ -70,7 +70,7 @@ def create_tools(db_config: DbConfig, on_trace):
     @tool
     def get_indexes(table: str) -> str:
         """Fetch all indexes for a specific table."""
-        if on_trace: on_trace(f"  -> Using tool: get_indexes for {table}")
+        if on_trace: on_trace(f"✓ Finding Indexes for {table}")
         try:
             if db_config.db_type == "postgresql":
                 rows = execute_query(f"SELECT indexname, indexdef FROM pg_indexes WHERE tablename = '{table}';")
@@ -84,7 +84,7 @@ def create_tools(db_config: DbConfig, on_trace):
     @tool
     def run_explain(query: str) -> str:
         """Run EXPLAIN ANALYZE on a SQL query to get the execution plan and cost."""
-        if on_trace: on_trace(f"  -> Using tool: run_explain")
+        if on_trace: on_trace(f"✓ Running Explain")
         try:
             if db_config.db_type == "postgresql":
                 rows = execute_query(f"EXPLAIN (ANALYZE, FORMAT JSON) {query}")
@@ -98,7 +98,7 @@ def create_tools(db_config: DbConfig, on_trace):
     @tool
     def analyze_cost(explain_json: str) -> str:
         """Analyze an EXPLAIN JSON output to extract total cost and execution time."""
-        if on_trace: on_trace(f"  -> Using tool: analyze_cost")
+        if on_trace: on_trace(f"✓ Rechecking Cost")
         try:
             data = json.loads(explain_json)
             if db_config.db_type == "postgresql":
@@ -114,9 +114,35 @@ def create_tools(db_config: DbConfig, on_trace):
     @tool
     def optimize_indexes(table: str, columns: list[str], reason: str) -> str:
         """Recommend a specific index based on a sequential scan or slow operation."""
-        if on_trace: on_trace(f"  -> Using tool: optimize_indexes")
+        if on_trace: on_trace(f"✓ Optimizing Indexes")
         idx_name = f"idx_{table}_{'_'.join(columns)}"
         statement = f"CREATE INDEX {idx_name} ON {table}({', '.join(columns)});"
         return json.dumps({"statement": statement, "reason": reason})
 
-    return [get_schema, get_indexes, run_explain, analyze_cost, optimize_indexes]
+    @tool
+    def get_foreign_keys(table: str) -> str:
+        """Fetch all foreign keys for a specific table to understand relationships."""
+        if on_trace: on_trace(f"✓ Finding Foreign Keys for {table}")
+        try:
+            if db_config.db_type == "postgresql":
+                query = f"""
+                SELECT
+                    tc.table_name, kcu.column_name,
+                    ccu.table_name AS foreign_table_name,
+                    ccu.column_name AS foreign_column_name
+                FROM information_schema.table_constraints AS tc
+                JOIN information_schema.key_column_usage AS kcu
+                  ON tc.constraint_name = kcu.constraint_name
+                JOIN information_schema.constraint_column_usage AS ccu
+                  ON ccu.constraint_name = tc.constraint_name
+                WHERE constraint_type = 'FOREIGN KEY' AND tc.table_name='{table}';
+                """
+                rows = execute_query(query)
+                return json.dumps(rows, indent=2)
+            else:
+                rows = execute_query(f"SELECT TABLE_NAME, COLUMN_NAME, REFERENCED_TABLE_NAME, REFERENCED_COLUMN_NAME FROM INFORMATION_SCHEMA.KEY_COLUMN_USAGE WHERE REFERENCED_TABLE_SCHEMA = '{db_config.database}' AND TABLE_NAME = '{table}';")
+                return json.dumps(rows, indent=2)
+        except Exception as e:
+            return f"Error fetching foreign keys: {str(e)}"
+
+    return [get_schema, get_indexes, get_foreign_keys, run_explain, analyze_cost, optimize_indexes]

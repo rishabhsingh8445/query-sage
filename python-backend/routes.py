@@ -48,9 +48,16 @@ async def langgraph_analyze(request: AnalyzeBody, user_id: str = Depends(get_cur
         def async_on_trace(msg: str):
             trace_queue.put_nowait(msg)
 
+        # Fetch previous optimizations for memory context
+        recent_queries = db.query(QueryHistory).filter(QueryHistory.user_id == user_id).order_by(QueryHistory.created_at.desc()).limit(5).all()
+        previous_optimizations = ""
+        for q in recent_queries:
+            previous_optimizations += f"- Original: {q.original_query}\n  Optimized: {q.optimized_query}\n  Explanation: {q.explanation}\n\n"
+
         initial_state = {
             "original_query": request.query,
             "schema_context": request.manual_schema or "",
+            "previous_optimizations": previous_optimizations,
             "db_config": db_config_obj,
             "on_trace": async_on_trace
         }
