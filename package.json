@@ -7,7 +7,7 @@
     "preinstall": "npx only-allow pnpm",
     "build": "pnpm run typecheck && pnpm -r --if-present run build",
     "typecheck:libs": "tsc --build",
-    "typecheck": "pnpm run typecheck:libs && pnpm -r --filter \"./frontend\" --filter \"./backend\" --filter \"./scripts\" --if-present run typecheck"
+    "typecheck": "pnpm run typecheck:libs && pnpm -r --filter \"./frontend\" --filter \"./scripts\" --if-present run typecheck"
   },
   "private": true,
   "devDependencies": {

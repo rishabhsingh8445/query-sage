@@ -100,6 +100,7 @@ export default function DashboardPage() {
   const [isExplaining, setIsExplaining] = useState(false);
   const [isEstimating, setIsEstimating] = useState(false);
   const [estimateResult, setEstimateResult] = useState<{ cost: number, rows: number, risk_level: string, message: string } | null>(null);
+  const [traces, setTraces] = useState<string[]>([]);
   
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -219,11 +220,12 @@ export default function DashboardPage() {
     setExplanationResult(null);
     setEstimateResult(null);
     setStreamStatus("Initializing...");
+    setTraces([]);
 
     try {
       const baseUrl = import.meta.env.VITE_API_URL || "";
       const token = await getToken();
-      const res = await fetch(`${baseUrl}/api/analyze-stream`, {
+      const res = await fetch(`${baseUrl}/api/langgraph-analyze`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -271,12 +273,15 @@ export default function DashboardPage() {
             } catch(e) { continue; }
             
             if (eventType === "status") setStreamStatus(parsedData);
+            if (eventType === "trace") {
+              setTraces(prev => [...prev, parsedData.step]);
+            }
             if (eventType === "bottlenecks") {
               setStreamBottlenecks(parsedData);
               currentBottlenecks = parsedData;
             }
             if (eventType === "chunk") {
-              fullContent += parsedData;
+              fullContent += JSON.stringify(parsedData); // chunk is JSON now
               setRawLlmContent(fullContent);
             }
             if (eventType === "savedId") {
@@ -737,7 +742,15 @@ export default function DashboardPage() {
                 <Database className="h-8 w-8 text-primary animate-pulse" />
               </div>
             </div>
-            <p className="mt-6 text-sm font-mono text-primary animate-pulse uppercase">{streamStatus || "EVALUATING QUERY PLAN..."}</p>
+            <p className="mt-6 text-sm font-mono text-primary animate-pulse uppercase mb-4">{streamStatus || "EVALUATING QUERY PLAN..."}</p>
+            <div className="space-y-2 max-w-md w-full px-4">
+              {traces.map((trace, i) => (
+                <div key={i} className="text-xs font-mono text-foreground/80 bg-muted/50 p-2 rounded flex items-start gap-2 animate-in slide-in-from-bottom-2">
+                  <span className="text-primary mt-0.5">{'>'}</span>
+                  <span className="whitespace-pre-wrap">{trace}</span>
+                </div>
+              ))}
+            </div>
           </div>
         )}
 

@@ -31,7 +31,6 @@ minimumReleaseAgeExclude: []
 
 packages:
   - frontend
-  - backend
   - lib/*
   - lib/integrations/*
   - scripts
