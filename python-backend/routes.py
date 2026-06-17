@@ -341,21 +341,26 @@ async def get_history_entry(id: int, user_id: str = Depends(get_current_user), d
 
 @router.get("/stats")
 async def get_stats(user_id: str = Depends(get_current_user), db: Session = Depends(get_db)):
-    total_queries = db.query(QueryHistory).filter(QueryHistory.user_id == user_id).count()
-    bottlenecks_found = 0
     recent = db.query(QueryHistory).filter(QueryHistory.user_id == user_id).all()
+    
+    total_optimizations = len(recent)
+    postgresql_count = sum(1 for r in recent if r.db_type.lower() == "postgresql")
+    mysql_count = sum(1 for r in recent if r.db_type.lower() == "mysql")
+    
+    bottleneck_counts = {}
     for r in recent:
         if isinstance(r.bottlenecks, list):
-            bottlenecks_found += len(r.bottlenecks)
-            
-    avg_improvement = "0%"
-    if total_queries > 0:
-        avg_improvement = "65%" 
-        
+            for b in r.bottlenecks:
+                b_type = b.get("type", "Unknown")
+                bottleneck_counts[b_type] = bottleneck_counts.get(b_type, 0) + 1
+                
+    top_bottlenecks = [{"type": k, "count": v} for k, v in sorted(bottleneck_counts.items(), key=lambda item: item[1], reverse=True)[:5]]
+    
     return {
-        "total_queries": total_queries,
-        "avg_improvement": avg_improvement,
-        "bottlenecks_found": bottlenecks_found
+        "total_optimizations": total_optimizations,
+        "postgresql_count": postgresql_count,
+        "mysql_count": mysql_count,
+        "top_bottleneck_types": top_bottlenecks
     }
 
 class MigrateBody(BaseModel):
