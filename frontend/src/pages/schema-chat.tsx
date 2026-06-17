@@ -14,7 +14,9 @@ type ChatMessage = {
 };
 
 export default function SchemaChatPage() {
-  const { chatMessages: messages, setChatMessages: setMessages } = useAppStore();
+  const { chatMessages, setChatMessages } = useAppStore();
+  const messages = chatMessages || [];
+  const setMessages = setChatMessages;
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -31,7 +33,7 @@ export default function SchemaChatPage() {
 
     const userMessage = input.trim();
     setInput("");
-    setMessages((prev) => [...prev, { role: "user", content: userMessage }]);
+    setMessages((prev) => [...(prev || []), { role: "user", content: userMessage }]);
     setIsLoading(true);
     let assistantMessageAdded = false;
 
@@ -53,7 +55,7 @@ export default function SchemaChatPage() {
         throw new Error("Failed to send message");
       }
 
-      setMessages((prev) => [...prev, { role: "assistant", content: "" }]);
+      setMessages((prev) => [...(prev || []), { role: "assistant", content: "" }]);
       assistantMessageAdded = true;
 
       const reader = response.body?.getReader();
@@ -78,9 +80,9 @@ export default function SchemaChatPage() {
               const data = JSON.parse(dataStr);
               if (data && typeof data === "string") {
                 setMessages((prev) => {
-                  const newMsgs = [...prev];
+                  const newMsgs = [...(prev || [])];
                   const last = newMsgs[newMsgs.length - 1];
-                  if (last.role === "assistant") {
+                  if (last && last.role === "assistant") {
                     last.content += data;
                   }
                   return newMsgs;
@@ -95,7 +97,7 @@ export default function SchemaChatPage() {
     } catch (err) {
       toast.error("Failed to communicate with AI");
       if (assistantMessageAdded) {
-        setMessages((prev) => prev.slice(0, -1)); // Remove the pending assistant message
+        setMessages((prev) => (prev || []).slice(0, -1)); // Remove the pending assistant message
       }
     } finally {
       setIsLoading(false);
