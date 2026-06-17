@@ -49,7 +49,6 @@
 graph TD
     %% Core Nodes
     Client["Client Browser"]
-    NodeAPI["Node.js Server (Auth/DB)"]
     PythonAPI["FastAPI Agent Engine"]
     Neon["Neon PostgreSQL"]
     LLM["NVIDIA NIM AI"]
@@ -65,8 +64,7 @@ graph TD
 
     %% Edges
     Client -->|"HTTP/SSE"| PythonAPI
-    Client -->|"GraphQL/REST"| NodeAPI
-    NodeAPI -->|"History"| Neon
+    PythonAPI -->|"History"| Neon
     PythonAPI -->|"Memory Fetch"| Neon
     PythonAPI --> Schema
     Schema --> Gen
@@ -90,7 +88,6 @@ graph TD
 querysage/
 ├── frontend/           # React + Vite (Glassmorphism UI, Trace Terminal)
 ├── python-backend/     # FastAPI + LangGraph Engine (4-Agent Team, Tools, Memory)
-├── backend/            # Express server (Legacy API routes)
 ├── lib/
 │   ├── db/             # Drizzle ORM schema & Neon connection
 │   └── api-zod/        # Shared TypeScript types
