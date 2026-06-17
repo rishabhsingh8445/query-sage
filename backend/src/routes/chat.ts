@@ -220,7 +220,13 @@ router.post("/schema-chat", async (req, res): Promise<void> => {
     if (recentQueries.length > 0) {
       queryHistoryContext = "Recent User Queries Context (Up to 50 latest):\n";
       recentQueries.forEach((q: any, i: number) => {
-        const dateStr = q.createdAt ? new Date(q.createdAt).toISOString() : 'Unknown Date';
+        const dateStr = q.createdAt ? new Date(q.createdAt).toLocaleString('en-US', { 
+          year: 'numeric', 
+          month: 'long', 
+          day: 'numeric', 
+          hour: '2-digit', 
+          minute: '2-digit' 
+        }) : 'Unknown Date';
         queryHistoryContext += `[Query ${i+1} Original]: ${q.originalQuery}\n[Query ${i+1} Optimized]: ${q.optimizedQuery}\n[Query ${i+1} Date]: ${dateStr}\n\n`;
       });
     }
