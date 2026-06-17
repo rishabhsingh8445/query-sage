@@ -319,7 +319,17 @@ async def estimate_query():
 
 @router.post("/indexes/estimate")
 async def estimate_index():
-    return {"status": "Not implemented"}
+    import random
+    speedup = random.randint(3, 25)
+    impact = random.randint(1, 15)
+    orig_cost = random.randint(2000, 15000)
+    return {
+        "speedup_factor": speedup,
+        "impact_count": impact,
+        "original_cost": orig_cost,
+        "new_cost": int(orig_cost / speedup),
+        "simulated": True
+    }
 
 @router.get("/monitor/slow-queries")
 async def slow_queries():
