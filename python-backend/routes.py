@@ -74,31 +74,35 @@ async def langgraph_analyze(request: AnalyzeBody, user_id: str = Depends(get_cur
 
         yield "event: status\ndata: \"Agent Workflow Complete!\"\n\n"
         
-        final_state = task.result()
-        
-        messages = final_state.get("messages", [])
-        last_msg = messages[-1].content if messages else ""
-        
-        # Parse JSON
-        clean = last_msg.strip()
-        match = re.search(r'```(?:json)?\s*([\s\S]*?)\s*```', clean)
-        if match:
-            clean = match.group(1).strip()
-        else:
-            first = clean.find("{")
-            last = clean.rfind("}")
-            if first != -1 and last != -1:
-                clean = clean[first:last+1].strip()
-
         try:
-            llm_result = json.loads(clean)
-        except Exception as e:
-            llm_result = {
-                "optimized_query": final_state.get("optimized_query", ""),
-                "explanation": clean,
-            }
+            final_state = task.result()
+            
+            messages = final_state.get("messages", [])
+            last_msg = messages[-1].content if messages else ""
+            
+            # Parse JSON
+            clean = last_msg.strip()
+            match = re.search(r'```(?:json)?\s*([\s\S]*?)\s*```', clean)
+            if match:
+                clean = match.group(1).strip()
+            else:
+                first = clean.find("{")
+                last = clean.rfind("}")
+                if first != -1 and last != -1:
+                    clean = clean[first:last+1].strip()
 
-        yield f"event: chunk\ndata: {json.dumps(llm_result)}\n\n"
+            try:
+                llm_result = json.loads(clean)
+            except Exception as e:
+                llm_result = {
+                    "optimized_query": final_state.get("optimized_query", ""),
+                    "explanation": clean,
+                }
+
+            yield f"event: chunk\ndata: {json.dumps(llm_result)}\n\n"
+        except Exception as e:
+            yield f"event: error\ndata: {json.dumps(f'AI Optimization failed: {str(e)}')}\n\n"
+            return
 
         # Save to DB
         try:
@@ -173,14 +177,17 @@ Explanation:
             chunk = q.get_nowait()
             yield f"event: chunk\ndata: {json.dumps(chunk)}\n\n"
             
-        full_response = task.result()
-        current_chat.append({"role": "assistant", "content": full_response})
-        
-        # update db
-        history.chat_history = current_chat
-        db.commit()
-        
-        yield "event: done\ndata: {\"success\": true}\n\n"
+        try:
+            full_response = task.result()
+            current_chat.append({"role": "assistant", "content": full_response})
+            
+            # update db
+            history.chat_history = current_chat
+            db.commit()
+            
+            yield "event: done\ndata: {\"success\": true}\n\n"
+        except Exception as e:
+            yield f"event: error\ndata: {json.dumps(f'AI Chat failed: {str(e)}')}\n\n"
 
     return StreamingResponse(event_generator(), media_type="text/event-stream")
 
@@ -282,16 +289,19 @@ async def schema_chat(request: SchemaChatBody, user_id: str = Depends(get_curren
             chunk = q.get_nowait()
             yield f"event: chunk\ndata: {json.dumps(chunk)}\n\n"
             
-        full_response = task.result()
-        current_chat.append({"role": "assistant", "content": full_response})
-        
-        # update db
-        thread = db.query(SchemaChatThread).filter(SchemaChatThread.id == thread_id).first()
-        if thread:
-            thread.messages = current_chat
-            db.commit()
+        try:
+            full_response = task.result()
+            current_chat.append({"role": "assistant", "content": full_response})
             
-        yield "event: done\ndata: {\"success\": true}\n\n"
+            # update db
+            thread = db.query(SchemaChatThread).filter(SchemaChatThread.id == thread_id).first()
+            if thread:
+                thread.messages = current_chat
+                db.commit()
+                
+            yield "event: done\ndata: {\"success\": true}\n\n"
+        except Exception as e:
+            yield f"event: error\ndata: {json.dumps(f'AI Chat failed: {str(e)}')}\n\n"
         
     return StreamingResponse(event_generator(), media_type="text/event-stream")
 
