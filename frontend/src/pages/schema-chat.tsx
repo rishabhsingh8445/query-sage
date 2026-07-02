@@ -260,13 +260,11 @@ export default function SchemaChatPage() {
       </div>
 
       {/* Main Chat Area - 100% Width */}
-      <div className="flex-1 flex flex-col min-w-0 h-full relative z-10 w-full">
+      <div className="flex-1 flex flex-col min-w-0 h-full relative z-10 w-full pt-16">
         
-        <div className="flex-1 flex flex-col min-h-0 w-full max-w-5xl mx-auto px-4 md:px-8">
-          
-          <ScrollArea className="flex-1 w-full pt-12" ref={scrollRef}>
+        <ScrollArea className="flex-1 w-full px-4 md:px-8 max-w-5xl mx-auto" ref={scrollRef}>
             {messages.length === 0 ? (
-              <div className="h-full min-h-[75vh] flex flex-col items-center justify-center animate-in fade-in zoom-in duration-1000">
+              <div className="h-full min-h-[70vh] flex flex-col items-center justify-center animate-in fade-in zoom-in duration-1000">
                 <div className="relative mb-8 group">
                   <div className={`absolute inset-0 blur-3xl rounded-full scale-150 transition-all duration-700 group-hover:scale-[2.0] ${!isSignedIn ? 'bg-red-500/20 group-hover:bg-red-500/30' : 'bg-primary/30 group-hover:bg-primary/40'}`}></div>
                   <div className={`relative border p-6 rounded-[2rem] shadow-2xl flex items-center justify-center backdrop-blur-xl transition-colors duration-500 ${!isSignedIn ? 'bg-black/60 border-red-500/20' : 'bg-black/40 border-white/10'}`}>
@@ -295,7 +293,7 @@ export default function SchemaChatPage() {
                 </div>
               </div>
             ) : (
-              <div className="space-y-8 py-8 pb-40 w-full max-w-4xl mx-auto">
+              <div className="space-y-8 py-8 w-full max-w-4xl mx-auto">
                 {messages.map((msg: ChatMessage, idx: number) => (
                   <div
                     key={idx}
@@ -345,16 +343,16 @@ export default function SchemaChatPage() {
                 )}
               </div>
             )}
-          </ScrollArea>
-          
-          {/* Docked Input Box */}
-          <div className="absolute bottom-0 left-0 right-0 p-6 pt-12 bg-gradient-to-t from-[#0a0a0a] via-[#0a0a0a] to-transparent z-20">
+        </ScrollArea>
+        
+        {/* Docked Input Box - Flex Layout (Not Absolute) */}
+        <div className="w-full max-w-4xl mx-auto px-4 md:px-8 pb-6 pt-2 shrink-0 z-20">
             <form
               onSubmit={(e) => {
                 e.preventDefault();
                 handleSend();
               }}
-              className="relative max-w-4xl mx-auto shadow-[0_0_40px_rgba(0,0,0,0.5)] rounded-full group flex items-center"
+              className="relative w-full shadow-[0_0_40px_rgba(0,0,0,0.5)] rounded-full group flex items-center"
             >
               <div className={`absolute -inset-0.5 rounded-full blur opacity-50 group-hover:opacity-100 transition duration-500 ${!isSignedIn && messages.length > 0 ? 'bg-gradient-to-r from-red-500/30 to-orange-500/30' : 'bg-gradient-to-r from-primary/30 to-blue-500/30'}`}></div>
               
@@ -398,7 +396,6 @@ export default function SchemaChatPage() {
                 {isSignedIn ? 'Connection Secure. Auth Validated.' : 'Awaiting Authentication. System Locked.'}
               </span>
             </div>
-          </div>
         </div>
       </div>
     </div>

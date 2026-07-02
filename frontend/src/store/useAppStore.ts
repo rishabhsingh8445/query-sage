@@ -24,6 +24,7 @@ interface AppState {
 
   currentThreadId: string | null;
   setCurrentThreadId: (id: string | null) => void;
+  clearChat: () => void;
 }
 
 export const useAppStore = create<AppState>()(
@@ -65,6 +66,7 @@ export const useAppStore = create<AppState>()(
 
       currentThreadId: null,
       setCurrentThreadId: (id) => set({ currentThreadId: id }),
+      clearChat: () => set({ chatMessages: [], currentThreadId: null }),
     }),
     {
       name: 'querysage-app-storage',

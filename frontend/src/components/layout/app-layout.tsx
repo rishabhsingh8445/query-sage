@@ -1,10 +1,12 @@
 import { useClerk, useUser } from "@clerk/react";
 import { LogOut } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { useAppStore } from "@/store/useAppStore";
 
 export function AppLayout({ children }: { children: React.ReactNode }) {
   const { signOut } = useClerk();
   const { user } = useUser();
+  const clearChat = useAppStore((state) => state.clearChat);
 
   return (
     <div className="flex h-screen overflow-hidden bg-background selection:bg-primary/30 relative">
@@ -19,7 +21,10 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
               </AvatarFallback>
            </Avatar>
            <button
-             onClick={() => signOut({ redirectUrl: import.meta.env.BASE_URL.replace(/\/$/, "") || "/" })}
+             onClick={() => {
+               clearChat();
+               signOut({ redirectUrl: import.meta.env.BASE_URL.replace(/\/$/, "") || "/" });
+             }}
              className="w-0 overflow-hidden opacity-0 group-hover:w-auto group-hover:opacity-100 group-hover:px-3 text-xs font-medium text-muted-foreground hover:text-red-400 transition-all duration-300 flex items-center whitespace-nowrap"
            >
              <LogOut className="mr-1.5 h-3.5 w-3.5" />
