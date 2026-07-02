@@ -144,7 +144,7 @@ function DashboardRoute() {
     <>
       <Show when="signed-in">
         <AppLayout>
-          <DashboardPage />
+          <SchemaChatPage />
         </AppLayout>
       </Show>
       <Show when="signed-out">

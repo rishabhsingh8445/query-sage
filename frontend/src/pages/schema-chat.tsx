@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from "react";
-import { MessageSquare, Send, Database, Loader2, Plus, Trash2, Menu } from "lucide-react";
+import { MessageSquare, Send, Database, Loader2, Plus, Trash2, Menu, Sparkles, Zap } from "lucide-react";
 import { useAuth } from "@clerk/react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -94,7 +94,10 @@ export default function SchemaChatPage() {
 
   useEffect(() => {
     if (scrollRef.current) {
-      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+      const scrollElement = scrollRef.current;
+      setTimeout(() => {
+        scrollElement.scrollTop = scrollElement.scrollHeight;
+      }, 100);
     }
   }, [messages]);
 
@@ -199,40 +202,40 @@ export default function SchemaChatPage() {
   };
 
   const SidebarContent = () => (
-    <div className="flex flex-col h-full bg-muted/20 border-r border-border p-4 w-full">
-      <Button onClick={startNewChat} className="mb-6 w-full justify-start gap-2 shadow-sm rounded-xl h-11" variant="default">
+    <div className="flex flex-col h-full bg-background border-r border-border p-3 w-full">
+      <Button onClick={startNewChat} className="mb-6 w-full justify-start gap-2 shadow-sm rounded-xl h-11 bg-card hover:bg-accent text-foreground border border-border" variant="outline">
         <Plus className="w-5 h-5" />
         New Chat
       </Button>
       
-      <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3 px-2">
+      <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3 px-3">
         Recent Chats
       </div>
       
       <ScrollArea className="flex-1 -mx-2 px-2">
         <div className="space-y-1">
           {threads.length === 0 && (
-            <div className="text-sm text-muted-foreground p-2">No history yet.</div>
+            <div className="text-sm text-muted-foreground p-3 text-center opacity-70">No history yet.</div>
           )}
           {threads.map((t) => (
             <div
               key={t.id}
               onClick={() => loadThread(t.id)}
-              className={`group flex items-center justify-between p-2.5 rounded-lg cursor-pointer transition-colors ${
-                currentThreadId === t.id ? "bg-muted text-foreground font-medium" : "text-muted-foreground hover:bg-muted/50 hover:text-foreground"
+              className={`group flex items-center justify-between p-3 rounded-xl cursor-pointer transition-all duration-200 ${
+                currentThreadId === t.id ? "bg-primary/10 text-primary font-medium" : "text-muted-foreground hover:bg-muted/50 hover:text-foreground"
               }`}
             >
               <div className="flex items-center gap-3 overflow-hidden">
-                <MessageSquare className="w-4 h-4 shrink-0 opacity-70" />
+                <MessageSquare className={`w-4 h-4 shrink-0 ${currentThreadId === t.id ? 'text-primary' : 'opacity-70'}`} />
                 <span className="truncate text-sm">{t.title}</span>
               </div>
               <Button
                 variant="ghost"
                 size="icon"
-                className="opacity-0 group-hover:opacity-100 h-7 w-7 transition-opacity"
+                className="opacity-0 group-hover:opacity-100 h-7 w-7 transition-opacity hover:bg-destructive/10 hover:text-destructive"
                 onClick={(e) => deleteThread(e, t.id)}
               >
-                <Trash2 className="w-4 h-4 text-destructive" />
+                <Trash2 className="w-4 h-4" />
               </Button>
             </div>
           ))}
@@ -242,19 +245,25 @@ export default function SchemaChatPage() {
   );
 
   return (
-    <div className="h-full flex max-w-[1400px] mx-auto bg-background">
-      {/* Desktop Sidebar */}
-      <div className="hidden md:block w-[280px] shrink-0 h-full">
+    <div className="h-full flex w-full bg-background relative overflow-hidden">
+      {/* Background Ambient Glow */}
+      <div className="absolute inset-0 overflow-hidden pointer-events-none z-0">
+        <div className="absolute top-[20%] left-[50%] -translate-x-1/2 w-[800px] h-[800px] bg-primary/5 rounded-full mix-blend-screen filter blur-[120px] opacity-70 animate-pulse"></div>
+      </div>
+
+      {/* Desktop Sidebar (ChatGPT Style) */}
+      <div className="hidden md:block w-[280px] shrink-0 h-full z-10 border-r border-border/50 bg-background/50 backdrop-blur-xl pt-16">
         <SidebarContent />
       </div>
 
       {/* Main Chat Area */}
-      <div className="flex-1 flex flex-col min-w-0 h-full p-4 md:p-6">
-        <div className="mb-4 md:mb-6 flex items-center gap-3">
-          {/* Mobile Sidebar Toggle */}
+      <div className="flex-1 flex flex-col min-w-0 h-full relative z-10 pt-16">
+        
+        {/* Mobile Header (When topbar is hidden, though app-layout handles mobile menu, we keep this for safety) */}
+        <div className="md:hidden flex items-center p-4 border-b border-border/50 bg-background/80 backdrop-blur-md">
           <Sheet open={isSidebarOpen} onOpenChange={setIsSidebarOpen}>
             <SheetTrigger asChild>
-              <Button variant="outline" size="icon" className="md:hidden shrink-0">
+              <Button variant="ghost" size="icon" className="shrink-0 mr-3">
                 <Menu className="h-5 w-5" />
               </Button>
             </SheetTrigger>
@@ -262,90 +271,106 @@ export default function SchemaChatPage() {
               <SidebarContent />
             </SheetContent>
           </Sheet>
-
-          <div>
-            <h1 className="text-2xl md:text-3xl font-bold tracking-tight">Schema-Aware AI Chat</h1>
-          </div>
+          <span className="font-semibold text-primary">QuerySage</span>
         </div>
 
-        <Card className="flex-1 flex flex-col min-h-0 border-border shadow-sm rounded-2xl overflow-hidden">
-          <CardHeader className="border-b border-border bg-muted/30 py-3 hidden md:flex">
-            <div className="flex items-center">
-              <Database className="w-5 h-5 mr-2 text-primary" />
-              <CardTitle className="text-base font-medium">QuerySage Assistant</CardTitle>
-            </div>
-          </CardHeader>
-          <CardContent className="flex-1 flex flex-col p-0 min-h-0">
-            <ScrollArea className="flex-1 p-4 md:p-6" ref={scrollRef}>
-              {messages.length === 0 ? (
-                <div className="h-full flex flex-col items-center justify-center text-muted-foreground opacity-60">
-                  <Database className="w-12 h-12 mb-4 text-primary opacity-80" />
-                  <p className="text-center px-4">Hello! I am QuerySage. Ask me about your database schema, indexes, or queries!</p>
+        <div className="flex-1 flex flex-col min-h-0 w-full max-w-4xl mx-auto px-4">
+          
+          <ScrollArea className="flex-1 w-full" ref={scrollRef}>
+            {messages.length === 0 ? (
+              <div className="h-full min-h-[70vh] flex flex-col items-center justify-center animate-in fade-in zoom-in duration-700">
+                <div className="relative mb-8">
+                  <div className="absolute inset-0 bg-primary/20 blur-2xl rounded-full scale-150"></div>
+                  <div className="relative bg-card border border-primary/20 p-5 rounded-3xl shadow-2xl flex items-center justify-center">
+                    <Database className="w-12 h-12 text-primary" />
+                    <Sparkles className="absolute -top-3 -right-3 w-6 h-6 text-yellow-400 animate-pulse" />
+                  </div>
                 </div>
-              ) : (
-                <div className="space-y-6 pb-4">
-                  {messages.map((msg: ChatMessage, idx: number) => (
+                <h1 className="text-4xl md:text-5xl font-bold tracking-tight mb-4 text-center bg-gradient-to-br from-white to-white/50 bg-clip-text text-transparent">
+                  Hi Sir, I'm QuerySage
+                </h1>
+                <p className="text-lg text-muted-foreground text-center max-w-lg mb-8">
+                  Your autonomous database assistant. I can optimize queries, analyze schema relationships, and detect security anomalies in real-time. How may I help you today?
+                </p>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 w-full max-w-2xl">
+                  <Button variant="outline" className="justify-start h-auto p-4 bg-card/50 hover:bg-primary/10 border-border/50 hover:border-primary/30 transition-all text-left flex-col items-start group" onClick={() => setInput("Can you find any slow queries affecting performance?")}>
+                    <span className="font-medium flex items-center group-hover:text-primary transition-colors"><Zap className="w-4 h-4 mr-2 text-primary"/> Find Slow Queries</span>
+                    <span className="text-xs text-muted-foreground mt-1">Analyze pg_stat_statements</span>
+                  </Button>
+                  <Button variant="outline" className="justify-start h-auto p-4 bg-card/50 hover:bg-primary/10 border-border/50 hover:border-primary/30 transition-all text-left flex-col items-start group" onClick={() => setInput("Analyze my schema and suggest missing indexes.")}>
+                    <span className="font-medium flex items-center group-hover:text-primary transition-colors"><Database className="w-4 h-4 mr-2 text-primary"/> Schema Analysis</span>
+                    <span className="text-xs text-muted-foreground mt-1">Check for missing optimizations</span>
+                  </Button>
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-6 py-8 pb-32 w-full">
+                {messages.map((msg: ChatMessage, idx: number) => (
+                  <div
+                    key={idx}
+                    className={`flex ${
+                      msg.role === "user" ? "justify-end" : "justify-start"
+                    }`}
+                  >
                     <div
-                      key={idx}
-                      className={`flex ${
-                        msg.role === "user" ? "justify-end" : "justify-start"
+                      className={`max-w-[85%] md:max-w-[80%] rounded-3xl px-6 py-4 text-[15px] leading-relaxed ${
+                        msg.role === "user"
+                          ? "bg-primary text-primary-foreground rounded-tr-sm shadow-md"
+                          : "bg-card/50 backdrop-blur-sm text-foreground rounded-tl-sm border border-border/50 shadow-sm"
                       }`}
                     >
-                      <div
-                        className={`max-w-[85%] md:max-w-[75%] rounded-2xl px-5 py-3.5 ${
-                          msg.role === "user"
-                            ? "bg-primary text-primary-foreground rounded-tr-sm shadow-md"
-                            : "bg-muted/40 text-foreground rounded-tl-sm border border-border/50 shadow-sm"
-                        }`}
-                      >
-                        {msg.role === "user" ? (
-                          <div className="whitespace-pre-wrap">{msg.content}</div>
-                        ) : (
-                          <div className="prose prose-sm md:prose-base dark:prose-invert max-w-none">
-                            <ReactMarkdown>{msg.content}</ReactMarkdown>
-                          </div>
-                        )}
-                      </div>
+                      {msg.role === "user" ? (
+                        <div className="whitespace-pre-wrap">{msg.content}</div>
+                      ) : (
+                        <div className="prose prose-sm md:prose-base dark:prose-invert max-w-none prose-p:leading-relaxed prose-pre:bg-black/50 prose-pre:border prose-pre:border-border/50">
+                          <ReactMarkdown>{msg.content}</ReactMarkdown>
+                        </div>
+                      )}
                     </div>
-                  ))}
-                  {isLoading && messages[messages.length - 1]?.role === "user" && (
-                    <div className="flex justify-start">
-                      <div className="bg-muted/40 rounded-2xl rounded-tl-sm px-5 py-4 border border-border/50">
-                        <Loader2 className="w-5 h-5 animate-spin text-primary" />
-                      </div>
+                  </div>
+                ))}
+                {isLoading && messages[messages.length - 1]?.role === "user" && (
+                  <div className="flex justify-start">
+                    <div className="bg-card/50 backdrop-blur-sm rounded-3xl rounded-tl-sm px-6 py-5 border border-border/50 shadow-sm flex items-center gap-3">
+                      <div className="w-2 h-2 rounded-full bg-primary animate-bounce"></div>
+                      <div className="w-2 h-2 rounded-full bg-primary animate-bounce delay-75"></div>
+                      <div className="w-2 h-2 rounded-full bg-primary animate-bounce delay-150"></div>
                     </div>
-                  )}
-                </div>
-              )}
-            </ScrollArea>
-            
-            <div className="p-4 bg-background">
-              <form
-                onSubmit={(e) => {
-                  e.preventDefault();
-                  handleSend();
-                }}
-                className="flex gap-2 max-w-4xl mx-auto"
+                  </div>
+                )}
+              </div>
+            )}
+          </ScrollArea>
+          
+          <div className="p-4 pt-0 bg-gradient-to-t from-background via-background to-transparent w-full">
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                handleSend();
+              }}
+              className="relative max-w-4xl mx-auto shadow-2xl shadow-primary/5 rounded-full"
+            >
+              <Input
+                placeholder="Ask QuerySage anything about your database..."
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+                disabled={isLoading}
+                className="w-full rounded-full pl-6 pr-14 h-14 border border-border/50 bg-card/80 backdrop-blur-xl focus-visible:ring-1 focus-visible:ring-primary focus-visible:border-primary text-base shadow-inner"
+              />
+              <Button 
+                type="submit" 
+                disabled={!input.trim() || isLoading}
+                size="icon"
+                className="absolute right-1.5 top-1.5 rounded-full h-11 w-11 bg-primary hover:bg-primary/90 shadow-md transition-transform active:scale-95 text-white"
               >
-                <Input
-                  placeholder="E.g., Which tables are missing indexes?"
-                  value={input}
-                  onChange={(e) => setInput(e.target.value)}
-                  disabled={isLoading}
-                  className="flex-1 rounded-full px-5 h-12 border-border shadow-sm focus-visible:ring-primary/50 text-base"
-                />
-                <Button 
-                  type="submit" 
-                  disabled={!input.trim() || isLoading}
-                  size="icon"
-                  className="rounded-full shadow-sm shrink-0 h-12 w-12"
-                >
-                  <Send className="w-5 h-5" />
-                </Button>
-              </form>
+                <Send className="w-5 h-5 ml-1" />
+              </Button>
+            </form>
+            <div className="text-center mt-3">
+              <span className="text-[11px] text-muted-foreground/60 tracking-wide">QuerySage can make mistakes. Always verify destructive queries.</span>
             </div>
-          </CardContent>
-        </Card>
+          </div>
+        </div>
       </div>
     </div>
   );
