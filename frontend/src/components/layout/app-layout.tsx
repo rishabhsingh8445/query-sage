@@ -21,9 +21,10 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
               </AvatarFallback>
            </Avatar>
            <button
-             onClick={() => {
+             onClick={async () => {
                clearChat();
-               signOut({ redirectUrl: import.meta.env.BASE_URL.replace(/\/$/, "") || "/" });
+               await signOut();
+               window.location.href = "/";
              }}
              className="w-0 overflow-hidden opacity-0 group-hover:w-auto group-hover:opacity-100 group-hover:px-3 text-xs font-medium text-muted-foreground hover:text-red-400 transition-all duration-300 flex items-center whitespace-nowrap"
            >
@@ -35,7 +36,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
 
       {/* Main content - Takes full 100% width and height */}
       <div className="flex-1 flex flex-col h-full overflow-hidden w-full relative">
-        <main className="flex-1 overflow-y-auto w-full">
+        <main className="flex-1 h-full min-h-0 w-full relative">
           {children}
         </main>
       </div>

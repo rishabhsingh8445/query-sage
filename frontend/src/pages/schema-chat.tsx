@@ -242,12 +242,12 @@ export default function SchemaChatPage() {
     <div className="h-full flex w-full bg-[#0a0a0a] relative overflow-hidden font-sans">
       
       {/* HUD Elements (Sci-Fi Aesthetics) */}
-      <div className="absolute top-4 left-4 z-0 pointer-events-none text-[10px] text-cyan-500/50 font-mono tracking-widest hidden md:block">
+      <div className="absolute top-6 left-6 z-0 pointer-events-none text-[10px] text-cyan-500/50 font-mono tracking-widest hidden md:block">
         SYS.LOAD: [||||||....] <br/>
         NET.UPLINK: SECURE <br/>
         MEM.CORE: 42%
       </div>
-      <div className="absolute top-4 right-20 z-0 pointer-events-none text-[10px] text-cyan-500/50 font-mono tracking-widest text-right hidden md:block">
+      <div className="absolute top-6 right-24 z-0 pointer-events-none text-[10px] text-cyan-500/50 font-mono tracking-widest text-right hidden md:block">
         THREAT_LVL: <span className={!isSignedIn ? "text-red-500/80 font-bold animate-pulse" : "text-green-500/80"}>{!isSignedIn ? "CRITICAL" : "ZERO"}</span> <br/>
         LATENCY: 14ms <br/>
         BIOMETRIC: {!isSignedIn ? "UNVERIFIED" : "VERIFIED"}
@@ -255,14 +255,14 @@ export default function SchemaChatPage() {
 
       {/* Background Ambient Glow */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none z-0">
-        <div className={`absolute top-[20%] left-[50%] -translate-x-1/2 w-[800px] h-[800px] rounded-full mix-blend-screen filter blur-[150px] opacity-60 animate-pulse transition-colors duration-1000 ${!isSignedIn && messages.length > 0 ? 'bg-red-500/10' : 'bg-primary/10'}`}></div>
-        <div className={`absolute bottom-[-10%] right-[-10%] w-[600px] h-[600px] rounded-full mix-blend-screen filter blur-[120px] opacity-40 transition-colors duration-1000 ${!isSignedIn && messages.length > 0 ? 'bg-orange-500/10' : 'bg-blue-500/10'}`}></div>
+        <div className={`absolute top-[20%] left-[50%] -translate-x-1/2 w-[800px] h-[800px] rounded-full mix-blend-screen filter blur-[150px] opacity-60 animate-pulse transition-colors duration-1000 ${!isSignedIn ? 'bg-red-500/10' : 'bg-primary/10'}`}></div>
+        <div className={`absolute bottom-[-10%] right-[-10%] w-[600px] h-[600px] rounded-full mix-blend-screen filter blur-[120px] opacity-40 transition-colors duration-1000 ${!isSignedIn ? 'bg-orange-500/10' : 'bg-blue-500/10'}`}></div>
       </div>
 
       {/* Main Chat Area - 100% Width */}
-      <div className="flex-1 flex flex-col min-w-0 h-full relative z-10 w-full pt-16">
+      <div className="flex-1 flex flex-col min-h-0 relative z-10 w-full pt-16">
         
-        <ScrollArea className="flex-1 w-full px-4 md:px-8 max-w-5xl mx-auto" ref={scrollRef}>
+        <div className="flex-1 w-full px-4 md:px-8 max-w-5xl mx-auto overflow-y-auto" ref={scrollRef}>
             {messages.length === 0 ? (
               <div className="h-full min-h-[70vh] flex flex-col items-center justify-center animate-in fade-in zoom-in duration-1000">
                 <div className="relative mb-8 group">
@@ -273,24 +273,37 @@ export default function SchemaChatPage() {
                   </div>
                 </div>
                 
-                <h1 className="text-5xl md:text-6xl font-extrabold tracking-tight mb-6 text-center bg-gradient-to-br from-white via-white/90 to-white/40 bg-clip-text text-transparent drop-shadow-sm">
-                  Welcome back, Sir.
+                <h1 className={`text-5xl md:text-6xl font-extrabold tracking-tight mb-6 text-center bg-gradient-to-br bg-clip-text text-transparent drop-shadow-sm ${!isSignedIn ? 'from-red-400 to-orange-400' : 'from-white via-white/90 to-white/40'}`}>
+                  {isSignedIn ? "Welcome back, Sir." : "Identify Yourself."}
                 </h1>
                 
                 <p className="text-lg md:text-xl text-muted-foreground/80 text-center max-w-2xl mb-12 font-medium leading-relaxed">
-                  QuerySage is online. Systems are nominal. <br/><span className="text-white/60">Awaiting your command. 🚀</span>
+                  {isSignedIn ? (
+                    <>QuerySage is online. Systems are nominal. <br/><span className="text-white/60">Awaiting your command. 🚀</span></>
+                  ) : (
+                    <>QuerySage mainframe is locked. Unidentified signature detected. <br/><span className="text-red-400/80">Awaiting biometric verification. ⚠️</span></>
+                  )}
                 </p>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 w-full max-w-3xl">
-                  <Button variant="outline" className="justify-start h-auto p-5 bg-white/5 hover:bg-white/10 border-white/10 hover:border-white/20 transition-all duration-300 text-left flex-col items-start group rounded-2xl" onClick={() => setInput("Can you find any slow queries affecting performance?")}>
-                    <span className="font-semibold flex items-center text-white/90 group-hover:text-white text-base"><Zap className="w-5 h-5 mr-3 text-yellow-400 drop-shadow-[0_0_8px_rgba(250,204,21,0.6)]"/> Run Diagnostics</span>
-                    <span className="text-sm text-white/40 mt-1.5 ml-8">Analyze database load and latency</span>
-                  </Button>
-                  <Button variant="outline" className="justify-start h-auto p-5 bg-white/5 hover:bg-white/10 border-white/10 hover:border-white/20 transition-all duration-300 text-left flex-col items-start group rounded-2xl" onClick={() => setInput("Analyze my schema and suggest missing indexes.")}>
-                    <span className="font-semibold flex items-center text-white/90 group-hover:text-white text-base"><Database className="w-5 h-5 mr-3 text-cyan-400 drop-shadow-[0_0_8px_rgba(34,211,238,0.6)]"/> Schema Analysis</span>
-                    <span className="text-sm text-white/40 mt-1.5 ml-8">Scan for structural vulnerabilities</span>
-                  </Button>
-                </div>
+                {isSignedIn ? (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 w-full max-w-3xl">
+                    <Button variant="outline" className="justify-start h-auto p-5 bg-white/5 hover:bg-white/10 border-white/10 hover:border-white/20 transition-all duration-300 text-left flex-col items-start group rounded-2xl" onClick={() => setInput("Can you find any slow queries affecting performance?")}>
+                      <span className="font-semibold flex items-center text-white/90 group-hover:text-white text-base"><Zap className="w-5 h-5 mr-3 text-yellow-400 drop-shadow-[0_0_8px_rgba(250,204,21,0.6)]"/> Run Diagnostics</span>
+                      <span className="text-sm text-white/40 mt-1.5 ml-8">Analyze database load and latency</span>
+                    </Button>
+                    <Button variant="outline" className="justify-start h-auto p-5 bg-white/5 hover:bg-white/10 border-white/10 hover:border-white/20 transition-all duration-300 text-left flex-col items-start group rounded-2xl" onClick={() => setInput("Analyze my schema and suggest missing indexes.")}>
+                      <span className="font-semibold flex items-center text-white/90 group-hover:text-white text-base"><Database className="w-5 h-5 mr-3 text-cyan-400 drop-shadow-[0_0_8px_rgba(34,211,238,0.6)]"/> Schema Analysis</span>
+                      <span className="text-sm text-white/40 mt-1.5 ml-8">Scan for structural vulnerabilities</span>
+                    </Button>
+                  </div>
+                ) : (
+                   <SignInButton mode="modal" forceRedirectUrl="/">
+                      <Button className="bg-red-600 hover:bg-red-700 text-white border-none shadow-[0_0_20px_rgba(220,38,38,0.6)] gap-3 rounded-full px-8 py-6 text-lg animate-pulse">
+                        <Fingerprint className="w-6 h-6" />
+                        VERIFY IDENTITY
+                      </Button>
+                   </SignInButton>
+                )}
               </div>
             ) : (
               <div className="space-y-8 py-8 w-full max-w-4xl mx-auto">
@@ -343,7 +356,7 @@ export default function SchemaChatPage() {
                 )}
               </div>
             )}
-        </ScrollArea>
+        </div>
         
         {/* Docked Input Box - Flex Layout (Not Absolute) */}
         <div className="w-full max-w-4xl mx-auto px-4 md:px-8 pb-6 pt-2 shrink-0 z-20">
