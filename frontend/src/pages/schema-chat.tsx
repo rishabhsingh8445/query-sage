@@ -1,24 +1,16 @@
 import { useState, useRef, useEffect } from "react";
-import { MessageSquare, Send, Database, Loader2, Plus, Trash2, Menu, Sparkles, Zap } from "lucide-react";
+import { Send, Database, Loader2, Sparkles, Zap, Bot } from "lucide-react";
 import { useAuth } from "@clerk/react";
-import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { toast } from "sonner";
 import ReactMarkdown from "react-markdown";
 import { useAppStore } from "@/store/useAppStore";
-import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 
 type ChatMessage = {
   role: "user" | "assistant";
   content: string;
-};
-
-type Thread = {
-  id: string;
-  title: string;
-  createdAt: string;
 };
 
 export default function SchemaChatPage() {
@@ -29,68 +21,6 @@ export default function SchemaChatPage() {
   const [isLoading, setIsLoading] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const { getToken } = useAuth();
-
-  const [threads, setThreads] = useState<Thread[]>([]);
-  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-
-  useEffect(() => {
-    fetchThreads();
-  }, []);
-
-  const fetchThreads = async () => {
-    try {
-      const token = await getToken();
-      const res = await fetch(`${import.meta.env.VITE_API_URL}/api/schema-chat/threads`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      if (res.ok) {
-        const data = await res.json();
-        setThreads(data);
-      }
-    } catch (e) {
-      console.error(e);
-    }
-  };
-
-  const loadThread = async (id: string) => {
-    setCurrentThreadId(id);
-    setIsSidebarOpen(false);
-    try {
-      const token = await getToken();
-      const res = await fetch(`${import.meta.env.VITE_API_URL}/api/schema-chat/threads/${id}`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      if (res.ok) {
-        const data = await res.json();
-        setMessages(data.messages || []);
-      }
-    } catch (e) {
-      toast.error("Failed to load thread");
-    }
-  };
-
-  const deleteThread = async (e: React.MouseEvent, id: string) => {
-    e.stopPropagation();
-    try {
-      const token = await getToken();
-      await fetch(`${import.meta.env.VITE_API_URL}/api/schema-chat/threads/${id}`, {
-        method: "DELETE",
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      if (currentThreadId === id) {
-        startNewChat();
-      }
-      fetchThreads();
-    } catch (e) {
-      toast.error("Failed to delete thread");
-    }
-  };
-
-  const startNewChat = () => {
-    setCurrentThreadId(null);
-    setMessages([]);
-    setIsSidebarOpen(false);
-  };
 
   useEffect(() => {
     if (scrollRef.current) {
@@ -160,7 +90,6 @@ export default function SchemaChatPage() {
                 toast.error(errorMsg);
                 setMessages((prev: ChatMessage[]) => {
                   const newMsgs = [...(prev || [])];
-                  // Remove the blank assistant message we added
                   if (newMsgs[newMsgs.length - 1]?.role === "assistant" && !newMsgs[newMsgs.length - 1].content) {
                     return newMsgs.slice(0, -1);
                   }
@@ -172,9 +101,8 @@ export default function SchemaChatPage() {
 
             try {
               const data = JSON.parse(dataStr);
-              if (data.thread_id) {
+              if (data.thread_id && !currentThreadId) {
                 setCurrentThreadId(data.thread_id);
-                fetchThreads(); // Refresh thread list
               } else if (typeof data === "string" && currentEvent !== "error") {
                 setMessages((prev: ChatMessage[]) => {
                   const newMsgs = [...(prev || [])];
@@ -201,110 +129,51 @@ export default function SchemaChatPage() {
     }
   };
 
-  const SidebarContent = () => (
-    <div className="flex flex-col h-full bg-background border-r border-border p-3 w-full">
-      <Button onClick={startNewChat} className="mb-6 w-full justify-start gap-2 shadow-sm rounded-xl h-11 bg-card hover:bg-accent text-foreground border border-border" variant="outline">
-        <Plus className="w-5 h-5" />
-        New Chat
-      </Button>
-      
-      <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3 px-3">
-        Recent Chats
-      </div>
-      
-      <ScrollArea className="flex-1 -mx-2 px-2">
-        <div className="space-y-1">
-          {threads.length === 0 && (
-            <div className="text-sm text-muted-foreground p-3 text-center opacity-70">No history yet.</div>
-          )}
-          {threads.map((t) => (
-            <div
-              key={t.id}
-              onClick={() => loadThread(t.id)}
-              className={`group flex items-center justify-between p-3 rounded-xl cursor-pointer transition-all duration-200 ${
-                currentThreadId === t.id ? "bg-primary/10 text-primary font-medium" : "text-muted-foreground hover:bg-muted/50 hover:text-foreground"
-              }`}
-            >
-              <div className="flex items-center gap-3 overflow-hidden">
-                <MessageSquare className={`w-4 h-4 shrink-0 ${currentThreadId === t.id ? 'text-primary' : 'opacity-70'}`} />
-                <span className="truncate text-sm">{t.title}</span>
-              </div>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="opacity-0 group-hover:opacity-100 h-7 w-7 transition-opacity hover:bg-destructive/10 hover:text-destructive"
-                onClick={(e) => deleteThread(e, t.id)}
-              >
-                <Trash2 className="w-4 h-4" />
-              </Button>
-            </div>
-          ))}
-        </div>
-      </ScrollArea>
-    </div>
-  );
-
   return (
-    <div className="h-full flex w-full bg-background relative overflow-hidden">
+    <div className="h-full flex w-full bg-[#0a0a0a] relative overflow-hidden font-sans">
       {/* Background Ambient Glow */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none z-0">
-        <div className="absolute top-[20%] left-[50%] -translate-x-1/2 w-[800px] h-[800px] bg-primary/5 rounded-full mix-blend-screen filter blur-[120px] opacity-70 animate-pulse"></div>
+        <div className="absolute top-[20%] left-[50%] -translate-x-1/2 w-[800px] h-[800px] bg-primary/10 rounded-full mix-blend-screen filter blur-[150px] opacity-60 animate-pulse"></div>
+        <div className="absolute bottom-[-10%] right-[-10%] w-[600px] h-[600px] bg-blue-500/10 rounded-full mix-blend-screen filter blur-[120px] opacity-40"></div>
       </div>
 
-      {/* Desktop Sidebar (ChatGPT Style) */}
-      <div className="hidden md:block w-[280px] shrink-0 h-full z-10 border-r border-border/50 bg-background/50 backdrop-blur-xl pt-16">
-        <SidebarContent />
-      </div>
-
-      {/* Main Chat Area */}
-      <div className="flex-1 flex flex-col min-w-0 h-full relative z-10 pt-16">
+      {/* Main Chat Area - 100% Width */}
+      <div className="flex-1 flex flex-col min-w-0 h-full relative z-10 w-full">
         
-        {/* Mobile Header (When topbar is hidden, though app-layout handles mobile menu, we keep this for safety) */}
-        <div className="md:hidden flex items-center p-4 border-b border-border/50 bg-background/80 backdrop-blur-md">
-          <Sheet open={isSidebarOpen} onOpenChange={setIsSidebarOpen}>
-            <SheetTrigger asChild>
-              <Button variant="ghost" size="icon" className="shrink-0 mr-3">
-                <Menu className="h-5 w-5" />
-              </Button>
-            </SheetTrigger>
-            <SheetContent side="left" className="p-0 w-[280px]">
-              <SidebarContent />
-            </SheetContent>
-          </Sheet>
-          <span className="font-semibold text-primary">QuerySage</span>
-        </div>
-
-        <div className="flex-1 flex flex-col min-h-0 w-full max-w-4xl mx-auto px-4">
+        <div className="flex-1 flex flex-col min-h-0 w-full max-w-5xl mx-auto px-4 md:px-8">
           
-          <ScrollArea className="flex-1 w-full" ref={scrollRef}>
+          <ScrollArea className="flex-1 w-full pt-12" ref={scrollRef}>
             {messages.length === 0 ? (
-              <div className="h-full min-h-[70vh] flex flex-col items-center justify-center animate-in fade-in zoom-in duration-700">
-                <div className="relative mb-8">
-                  <div className="absolute inset-0 bg-primary/20 blur-2xl rounded-full scale-150"></div>
-                  <div className="relative bg-card border border-primary/20 p-5 rounded-3xl shadow-2xl flex items-center justify-center">
-                    <Database className="w-12 h-12 text-primary" />
-                    <Sparkles className="absolute -top-3 -right-3 w-6 h-6 text-yellow-400 animate-pulse" />
+              <div className="h-full min-h-[75vh] flex flex-col items-center justify-center animate-in fade-in zoom-in duration-1000">
+                <div className="relative mb-8 group">
+                  <div className="absolute inset-0 bg-primary/30 blur-3xl rounded-full scale-150 transition-all duration-700 group-hover:scale-[2.0] group-hover:bg-primary/40"></div>
+                  <div className="relative bg-black/40 border border-white/10 p-6 rounded-[2rem] shadow-2xl flex items-center justify-center backdrop-blur-xl">
+                    <Bot className="w-16 h-16 text-white drop-shadow-[0_0_15px_rgba(255,255,255,0.5)]" />
+                    <Sparkles className="absolute -top-4 -right-4 w-8 h-8 text-yellow-400 animate-pulse drop-shadow-[0_0_10px_rgba(250,204,21,0.8)]" />
                   </div>
                 </div>
-                <h1 className="text-4xl md:text-5xl font-bold tracking-tight mb-4 text-center bg-gradient-to-br from-white to-white/50 bg-clip-text text-transparent">
-                  Hi Sir, I'm QuerySage
+                
+                <h1 className="text-5xl md:text-6xl font-extrabold tracking-tight mb-6 text-center bg-gradient-to-br from-white via-white/90 to-white/40 bg-clip-text text-transparent drop-shadow-sm">
+                  Hi Sir, I am QuerySage ✨
                 </h1>
-                <p className="text-lg text-muted-foreground text-center max-w-lg mb-8">
-                  Your autonomous database assistant. I can optimize queries, analyze schema relationships, and detect security anomalies in real-time. How may I help you today?
+                
+                <p className="text-lg md:text-xl text-muted-foreground/80 text-center max-w-2xl mb-12 font-medium leading-relaxed">
+                  Your autonomous database engineer. I monitor health, optimize complex queries, and defend against threats. <br/><span className="text-white/60">Just tell me what you need. 🚀</span>
                 </p>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 w-full max-w-2xl">
-                  <Button variant="outline" className="justify-start h-auto p-4 bg-card/50 hover:bg-primary/10 border-border/50 hover:border-primary/30 transition-all text-left flex-col items-start group" onClick={() => setInput("Can you find any slow queries affecting performance?")}>
-                    <span className="font-medium flex items-center group-hover:text-primary transition-colors"><Zap className="w-4 h-4 mr-2 text-primary"/> Find Slow Queries</span>
-                    <span className="text-xs text-muted-foreground mt-1">Analyze pg_stat_statements</span>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 w-full max-w-3xl">
+                  <Button variant="outline" className="justify-start h-auto p-5 bg-white/5 hover:bg-white/10 border-white/10 hover:border-white/20 transition-all duration-300 text-left flex-col items-start group rounded-2xl" onClick={() => setInput("Can you find any slow queries affecting performance?")}>
+                    <span className="font-semibold flex items-center text-white/90 group-hover:text-white text-base"><Zap className="w-5 h-5 mr-3 text-yellow-400 drop-shadow-[0_0_8px_rgba(250,204,21,0.6)]"/> Run Performance Diagnostics</span>
+                    <span className="text-sm text-white/40 mt-1.5 ml-8">Analyze pg_stat_statements for bottlenecks</span>
                   </Button>
-                  <Button variant="outline" className="justify-start h-auto p-4 bg-card/50 hover:bg-primary/10 border-border/50 hover:border-primary/30 transition-all text-left flex-col items-start group" onClick={() => setInput("Analyze my schema and suggest missing indexes.")}>
-                    <span className="font-medium flex items-center group-hover:text-primary transition-colors"><Database className="w-4 h-4 mr-2 text-primary"/> Schema Analysis</span>
-                    <span className="text-xs text-muted-foreground mt-1">Check for missing optimizations</span>
+                  <Button variant="outline" className="justify-start h-auto p-5 bg-white/5 hover:bg-white/10 border-white/10 hover:border-white/20 transition-all duration-300 text-left flex-col items-start group rounded-2xl" onClick={() => setInput("Analyze my schema and suggest missing indexes.")}>
+                    <span className="font-semibold flex items-center text-white/90 group-hover:text-white text-base"><Database className="w-5 h-5 mr-3 text-cyan-400 drop-shadow-[0_0_8px_rgba(34,211,238,0.6)]"/> Schema Analysis</span>
+                    <span className="text-sm text-white/40 mt-1.5 ml-8">Check for missing structural optimizations</span>
                   </Button>
                 </div>
               </div>
             ) : (
-              <div className="space-y-6 py-8 pb-32 w-full">
+              <div className="space-y-8 py-8 pb-40 w-full max-w-4xl mx-auto">
                 {messages.map((msg: ChatMessage, idx: number) => (
                   <div
                     key={idx}
@@ -313,16 +182,16 @@ export default function SchemaChatPage() {
                     }`}
                   >
                     <div
-                      className={`max-w-[85%] md:max-w-[80%] rounded-3xl px-6 py-4 text-[15px] leading-relaxed ${
+                      className={`max-w-[85%] md:max-w-[80%] rounded-[2rem] px-7 py-5 text-[16px] leading-relaxed shadow-xl ${
                         msg.role === "user"
-                          ? "bg-primary text-primary-foreground rounded-tr-sm shadow-md"
-                          : "bg-card/50 backdrop-blur-sm text-foreground rounded-tl-sm border border-border/50 shadow-sm"
+                          ? "bg-white/10 text-white rounded-tr-sm border border-white/5 backdrop-blur-md"
+                          : "bg-transparent text-white/90 rounded-tl-sm"
                       }`}
                     >
                       {msg.role === "user" ? (
-                        <div className="whitespace-pre-wrap">{msg.content}</div>
+                        <div className="whitespace-pre-wrap font-medium">{msg.content}</div>
                       ) : (
-                        <div className="prose prose-sm md:prose-base dark:prose-invert max-w-none prose-p:leading-relaxed prose-pre:bg-black/50 prose-pre:border prose-pre:border-border/50">
+                        <div className="prose prose-base md:prose-lg dark:prose-invert max-w-none prose-p:leading-loose prose-pre:bg-white/5 prose-pre:border prose-pre:border-white/10 prose-pre:rounded-xl prose-pre:backdrop-blur-md">
                           <ReactMarkdown>{msg.content}</ReactMarkdown>
                         </div>
                       )}
@@ -330,11 +199,11 @@ export default function SchemaChatPage() {
                   </div>
                 ))}
                 {isLoading && messages[messages.length - 1]?.role === "user" && (
-                  <div className="flex justify-start">
-                    <div className="bg-card/50 backdrop-blur-sm rounded-3xl rounded-tl-sm px-6 py-5 border border-border/50 shadow-sm flex items-center gap-3">
-                      <div className="w-2 h-2 rounded-full bg-primary animate-bounce"></div>
-                      <div className="w-2 h-2 rounded-full bg-primary animate-bounce delay-75"></div>
-                      <div className="w-2 h-2 rounded-full bg-primary animate-bounce delay-150"></div>
+                  <div className="flex justify-start pl-4">
+                    <div className="bg-transparent rounded-3xl rounded-tl-sm px-6 py-5 flex items-center gap-3">
+                      <div className="w-2.5 h-2.5 rounded-full bg-white/50 animate-bounce shadow-[0_0_10px_rgba(255,255,255,0.5)]"></div>
+                      <div className="w-2.5 h-2.5 rounded-full bg-white/50 animate-bounce delay-75 shadow-[0_0_10px_rgba(255,255,255,0.5)]"></div>
+                      <div className="w-2.5 h-2.5 rounded-full bg-white/50 animate-bounce delay-150 shadow-[0_0_10px_rgba(255,255,255,0.5)]"></div>
                     </div>
                   </div>
                 )}
@@ -342,32 +211,34 @@ export default function SchemaChatPage() {
             )}
           </ScrollArea>
           
-          <div className="p-4 pt-0 bg-gradient-to-t from-background via-background to-transparent w-full">
+          {/* Docked Input Box */}
+          <div className="absolute bottom-0 left-0 right-0 p-6 pt-12 bg-gradient-to-t from-[#0a0a0a] via-[#0a0a0a] to-transparent z-20">
             <form
               onSubmit={(e) => {
                 e.preventDefault();
                 handleSend();
               }}
-              className="relative max-w-4xl mx-auto shadow-2xl shadow-primary/5 rounded-full"
+              className="relative max-w-4xl mx-auto shadow-[0_0_40px_rgba(0,0,0,0.5)] rounded-full group"
             >
+              <div className="absolute -inset-0.5 bg-gradient-to-r from-primary/30 to-blue-500/30 rounded-full blur opacity-50 group-hover:opacity-100 transition duration-500"></div>
               <Input
-                placeholder="Ask QuerySage anything about your database..."
+                placeholder="Ask QuerySage to optimize a query, check logs, or build a table..."
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
                 disabled={isLoading}
-                className="w-full rounded-full pl-6 pr-14 h-14 border border-border/50 bg-card/80 backdrop-blur-xl focus-visible:ring-1 focus-visible:ring-primary focus-visible:border-primary text-base shadow-inner"
+                className="relative w-full rounded-full pl-8 pr-16 h-16 border border-white/10 bg-black/60 backdrop-blur-2xl focus-visible:ring-0 focus-visible:border-white/30 text-lg text-white shadow-inner placeholder:text-white/30"
               />
               <Button 
                 type="submit" 
                 disabled={!input.trim() || isLoading}
                 size="icon"
-                className="absolute right-1.5 top-1.5 rounded-full h-11 w-11 bg-primary hover:bg-primary/90 shadow-md transition-transform active:scale-95 text-white"
+                className="absolute right-2 top-2 rounded-full h-12 w-12 bg-white text-black hover:bg-white/90 shadow-[0_0_15px_rgba(255,255,255,0.3)] transition-all active:scale-95 disabled:bg-white/20 disabled:text-white/40"
               >
                 <Send className="w-5 h-5 ml-1" />
               </Button>
             </form>
-            <div className="text-center mt-3">
-              <span className="text-[11px] text-muted-foreground/60 tracking-wide">QuerySage can make mistakes. Always verify destructive queries.</span>
+            <div className="text-center mt-4">
+              <span className="text-xs text-white/30 tracking-wider font-medium uppercase">QuerySage AI can make mistakes. Always verify destructive commands.</span>
             </div>
           </div>
         </div>

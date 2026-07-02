@@ -133,7 +133,8 @@ function HomeRedirect() {
         <Redirect to="/dashboard" />
       </Show>
       <Show when="signed-out">
-        <LandingPage />
+        {/* Instead of a marketing landing page, just redirect to sign-in so they immediately get into the app */}
+        <Redirect to="/sign-in" />
       </Show>
     </>
   );
