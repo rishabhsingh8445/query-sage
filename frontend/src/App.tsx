@@ -126,32 +126,11 @@ function ApiClientConfigurator() {
   return null;
 }
 
-function HomeRedirect() {
+function HomeRoute() {
   return (
-    <>
-      <Show when="signed-in">
-        <Redirect to="/dashboard" />
-      </Show>
-      <Show when="signed-out">
-        {/* Instead of a marketing landing page, just redirect to sign-in so they immediately get into the app */}
-        <Redirect to="/sign-in" />
-      </Show>
-    </>
-  );
-}
-
-function DashboardRoute() {
-  return (
-    <>
-      <Show when="signed-in">
-        <AppLayout>
-          <SchemaChatPage />
-        </AppLayout>
-      </Show>
-      <Show when="signed-out">
-        <Redirect to="/" />
-      </Show>
-    </>
+    <AppLayout>
+      <SchemaChatPage />
+    </AppLayout>
   );
 }
 
@@ -218,10 +197,10 @@ function ClerkProviderWithRoutes() {
         <TooltipProvider>
           <Suspense fallback={<div className="flex h-screen items-center justify-center text-muted-foreground">Loading...</div>}>
             <Switch>
-              <Route path="/" component={HomeRedirect} />
+              <Route path="/" component={HomeRoute} />
               <Route path="/sign-in/*?" component={SignInPage} />
               <Route path="/sign-up/*?" component={SignUpPage} />
-              <Route path="/dashboard" component={DashboardRoute} />
+              <Route path="/dashboard" component={HomeRoute} />
               <Route path="/history" component={HistoryRoute} />
               <Route path="/stats" component={StatsRoute} />
               <Route path="/monitor"><AppLayout><MonitorPage /></AppLayout></Route>
