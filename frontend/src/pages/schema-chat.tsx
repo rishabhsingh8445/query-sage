@@ -154,11 +154,11 @@ export default function SchemaChatPage() {
                 </div>
                 
                 <h1 className="text-5xl md:text-6xl font-extrabold tracking-tight mb-6 text-center bg-gradient-to-br from-white via-white/90 to-white/40 bg-clip-text text-transparent drop-shadow-sm">
-                  Hi Sir, I am QuerySage ✨
+                  Welcome to Query Sage ✨
                 </h1>
                 
                 <p className="text-lg md:text-xl text-muted-foreground/80 text-center max-w-2xl mb-12 font-medium leading-relaxed">
-                  Your autonomous database engineer. I monitor health, optimize complex queries, and defend against threats. <br/><span className="text-white/60">Just tell me what you need. 🚀</span>
+                  Hi Sir! I am your autonomous database engineer. I monitor health, optimize complex queries, and defend against threats. <br/><span className="text-white/60">Just tell me what you need. 🚀</span>
                 </p>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 w-full max-w-3xl">
