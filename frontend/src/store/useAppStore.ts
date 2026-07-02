@@ -70,7 +70,7 @@ export const useAppStore = create<AppState>()(
     }),
     {
       name: 'querysage-app-storage',
-      partialize: (state) => ({ credentials: state.credentials, chatMessages: state.chatMessages, currentThreadId: state.currentThreadId }), 
+      partialize: (state) => ({ credentials: state.credentials }),
     }
   )
 );

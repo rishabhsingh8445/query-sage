@@ -35,14 +35,13 @@ export default function SchemaChatPage() {
   
   const { getToken, isSignedIn } = useAuth();
 
+  const clearChat = useAppStore((state) => state.clearChat);
+
   // Cinematic Boot Sequence Logic
   useEffect(() => {
-    // Only run boot sequence if chat history is empty, otherwise skip to ready
-    if (messages.length > 0) {
-      setBootPhase("ready");
-      return;
-    }
-
+    // ALWAYS clear chat on fresh load to ensure the boot animation plays and old sessions are wiped
+    clearChat();
+    
     setBootPhase("diagnostics");
     let currentLine = 0;
     
@@ -274,7 +273,7 @@ export default function SchemaChatPage() {
                 </div>
                 
                 <h1 className={`text-5xl md:text-6xl font-extrabold tracking-tight mb-6 text-center bg-gradient-to-br bg-clip-text text-transparent drop-shadow-sm ${!isSignedIn ? 'from-red-400 to-orange-400' : 'from-white via-white/90 to-white/40'}`}>
-                  {isSignedIn ? "Welcome back, Sir." : "Identify Yourself."}
+                  {isSignedIn ? "Welcome to QuerySage." : "Identify Yourself."}
                 </h1>
                 
                 <p className="text-lg md:text-xl text-muted-foreground/80 text-center max-w-2xl mb-12 font-medium leading-relaxed">
