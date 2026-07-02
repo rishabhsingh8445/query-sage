@@ -1,7 +1,7 @@
 import os
 from qdrant_client import QdrantClient
 from qdrant_client.models import Distance, VectorParams, PointStruct
-from langchain_nvidia_ai_endpoints import NVIDIAEmbeddings
+from langchain_google_genai import GoogleGenerativeAIEmbeddings
 import uuid
 from dotenv import load_dotenv
 
@@ -19,12 +19,12 @@ except Exception as e:
     print(f"Warning: Failed to connect to Qdrant: {e}")
     qdrant = None
 
-embeddings = NVIDIAEmbeddings(
-    model="NV-Embed-QA", # standard model for NVIDIA endpoints
-    api_key=os.getenv("NVIDIA_API_KEY")
+embeddings = GoogleGenerativeAIEmbeddings(
+    model="models/text-embedding-004", 
+    google_api_key=os.getenv("GEMINI_API_KEY")
 )
 
-COLLECTION_NAME = "querysage_schema_v1"
+COLLECTION_NAME = "querysage_schema_v2"
 
 def init_qdrant():
     if not qdrant:
@@ -34,7 +34,7 @@ def init_qdrant():
         if not any(c.name == COLLECTION_NAME for c in collections):
             qdrant.create_collection(
                 collection_name=COLLECTION_NAME,
-                vectors_config=VectorParams(size=1536, distance=Distance.COSINE),
+                vectors_config=VectorParams(size=768, distance=Distance.COSINE),
             )
     except Exception as e:
         print(f"Failed to initialize Qdrant collection: {e}")

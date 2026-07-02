@@ -11,4 +11,5 @@ cryptography>=42.0.8
 python-dotenv>=1.0.1
 pydantic>=2.7.4
 mysql-connector-python>=8.4.0
-langchain-nvidia-ai-endpoints>=0.1.1
+langchain-groq>=0.1.5
+langchain-google-genai>=1.0.6

@@ -4,7 +4,7 @@ from typing import TypedDict, Annotated, Sequence
 from operator import add
 from langchain_core.messages import BaseMessage, HumanMessage, SystemMessage, ToolMessage, AIMessage
 from langgraph.graph import StateGraph, START, END
-from langchain_nvidia_ai_endpoints import ChatNVIDIA
+from llm import get_groq_llm
 from tools import create_tools, DbConfig
 
 class GraphState(TypedDict):
@@ -19,11 +19,7 @@ class GraphState(TypedDict):
 
 def create_optimization_graph():
     
-    llm = ChatNVIDIA(
-        model="meta/llama-3.3-70b-instruct",
-        api_key=os.getenv("NVIDIA_API_KEY", "dummy-key-to-bypass-init"),
-        temperature=0.1
-    )
+    llm = get_groq_llm(temperature=0.1)
 
     def schema_analyst(state: GraphState):
         db_config = state.get("db_config")
