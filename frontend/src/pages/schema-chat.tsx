@@ -273,7 +273,7 @@ export default function SchemaChatPage() {
                <div className="p-6 overflow-y-auto flex-1 min-h-0">
                   {!optimizedOutput && !isOptimizing ? (
                      <div className="h-full flex items-center justify-center text-[#00f3ff]/40 text-sm uppercase tracking-widest">
-                       > Awaiting Execution...
+                       {'>'} Awaiting Execution...
                      </div>
                   ) : (
                      <div className="prose prose-sm md:prose-base prose-invert max-w-none text-[#00f3ff] prose-p:leading-relaxed prose-pre:bg-black/80 prose-pre:border prose-pre:border-[#00f3ff]/30 prose-pre:rounded-none">
