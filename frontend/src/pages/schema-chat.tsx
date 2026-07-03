@@ -49,14 +49,16 @@ export default function SchemaChatPage() {
       setFadeState("out");
       await new Promise(r => setTimeout(r, 800));
       
-      // Step 2: Main Intro
-      setIntroStep(2);
-      setIntroText("I am QuerySage.\nYour database intelligence.");
-      setFadeState("in");
-      await new Promise(r => setTimeout(r, 2500));
+      // Step 2: Main Intro (Skip if already signed in)
+      if (!isSignedIn) {
+        setIntroStep(2);
+        setIntroText("I am QuerySage.\nYour database intelligence.");
+        setFadeState("in");
+        await new Promise(r => setTimeout(r, 2500));
 
-      setFadeState("out");
-      await new Promise(r => setTimeout(r, 800));
+        setFadeState("out");
+        await new Promise(r => setTimeout(r, 800));
+      }
 
       // Step 3: Awaiting
       setIntroStep(3);
