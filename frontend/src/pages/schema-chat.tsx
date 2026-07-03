@@ -145,7 +145,7 @@ export default function SchemaChatPage() {
   ];
 
   return (
-    <div className="h-full w-full bg-[#050505] relative overflow-hidden flex flex-col font-sans text-zinc-50 pt-12 sm:pt-20 pb-4 sm:pb-8">
+    <div className="h-full w-full bg-[#050505] relative overflow-hidden flex flex-col font-sans text-zinc-50">
       
       {/* Subtle Background Elements */}
       <div className="fixed inset-0 z-0 pointer-events-none">
@@ -153,33 +153,33 @@ export default function SchemaChatPage() {
         <div className="absolute bottom-[-20%] right-[-10%] w-[50%] h-[50%] bg-violet-900/10 blur-[120px] rounded-full"></div>
       </div>
 
-      <div className="relative z-10 w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex-1 flex flex-col min-h-0">
-        
-        {/* Header */}
-        <div className="flex items-center justify-between mb-8 shrink-0">
-          <div className="flex items-center gap-3">
-             {view !== "dashboard" && (
-                <Button variant="ghost" size="icon" onClick={() => setView("dashboard")} className="text-zinc-400 hover:text-white mr-2">
-                  <ArrowLeft className="w-5 h-5" />
-                </Button>
-             )}
-             <div>
-                <h1 className="text-3xl font-bold tracking-tight text-white flex items-center gap-2">
-                   <Database className="w-6 h-6 text-indigo-400" />
-                   QuerySage
-                </h1>
-                <p className="text-sm text-zinc-400 mt-1">Enterprise Database Intelligence Toolkit</p>
-             </div>
-          </div>
-          
-          {!isSignedIn && (
-             <SignInButton mode="modal" forceRedirectUrl="/">
-                <Button className="bg-white hover:bg-zinc-200 text-black font-medium px-6 py-2 h-10 rounded-lg">
-                  Authenticate
-                </Button>
-             </SignInButton>
-          )}
+      {/* Header (Full Width, Top Corners) */}
+      <div className="relative z-20 w-full px-6 py-6 flex items-center justify-between shrink-0">
+        <div className="flex items-center gap-3">
+           {view !== "dashboard" && (
+              <Button variant="ghost" size="icon" onClick={() => setView("dashboard")} className="text-zinc-400 hover:text-white mr-2">
+                <ArrowLeft className="w-5 h-5" />
+              </Button>
+           )}
+           <div>
+              <h1 className="text-2xl font-bold tracking-tight text-white flex items-center gap-2">
+                 <Database className="w-5 h-5 text-indigo-400" />
+                 QuerySage
+              </h1>
+              <p className="text-xs text-zinc-400 mt-1">Enterprise Database Intelligence Toolkit</p>
+           </div>
         </div>
+        
+        {!isSignedIn && (
+           <SignInButton mode="modal" forceRedirectUrl="/">
+              <Button className="bg-white hover:bg-zinc-200 text-black font-medium px-6 py-2 h-9 rounded-lg text-sm">
+                Authenticate
+              </Button>
+           </SignInButton>
+        )}
+      </div>
+
+      <div className="relative z-10 w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex-1 flex flex-col min-h-0 pb-6">
 
         {/* --- VIEW: DASHBOARD --- */}
         {view === "dashboard" && (
