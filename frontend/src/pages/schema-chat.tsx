@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useAuth, SignInButton } from "@clerk/react";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
@@ -16,6 +16,11 @@ export default function SchemaChatPage() {
   const { getToken, isSignedIn } = useAuth();
   const [view, setView] = useState<ViewState>("dashboard");
   
+  // Cinematic Intro State
+  const [introStep, setIntroStep] = useState(0); 
+  const [introText, setIntroText] = useState("");
+  const [fadeState, setFadeState] = useState<"in" | "out">("in");
+
   // SQL Optimizer State
   const [rawSql, setRawSql] = useState("");
   const [optimizedOutput, setOptimizedOutput] = useState("");
@@ -25,6 +30,30 @@ export default function SchemaChatPage() {
   const [isConnected, setIsConnected] = useState(false);
   const [isConnecting, setIsConnecting] = useState(false);
   
+  useEffect(() => {
+    // Only play intro when entering the dashboard
+    if (view !== "dashboard") return;
+    
+    setIntroStep(1);
+    const sequence = async () => {
+      await new Promise(r => setTimeout(r, 500));
+      
+      setIntroText("Hello. I am QuerySage.");
+      setFadeState("in");
+      await new Promise(r => setTimeout(r, 2000));
+      
+      setFadeState("out");
+      await new Promise(r => setTimeout(r, 800));
+      
+      setIntroText("Please select an option to begin.");
+      setFadeState("in");
+      await new Promise(r => setTimeout(r, 1500));
+      
+      setIntroStep(2); // Unlocks the dashboard cards to fade in
+    };
+    sequence();
+  }, [view]);
+
   const handleOptimize = async (sqlToOptimize: string) => {
     if (!isSignedIn) {
       toast.error("Please sign in to run optimizations.");
@@ -154,30 +183,50 @@ export default function SchemaChatPage() {
 
         {/* --- VIEW: DASHBOARD --- */}
         {view === "dashboard" && (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-12 animate-in fade-in slide-in-from-bottom-4 duration-700">
+          <div className="flex flex-col items-center justify-center min-h-[60vh]">
             
-            {/* Tool 1 */}
-            <Card className="bg-[#111113]/80 border-zinc-800/50 backdrop-blur-xl hover:border-indigo-500/50 transition-all cursor-pointer group shadow-xl" onClick={() => setView("sql-optimizer")}>
-              <CardHeader>
-                <div className="w-12 h-12 bg-indigo-500/10 rounded-lg flex items-center justify-center mb-4 group-hover:bg-indigo-500/20 transition-colors">
-                  <Code2 className="w-6 h-6 text-indigo-400" />
-                </div>
-                <CardTitle className="text-xl text-zinc-100">SQL Optimizer Studio</CardTitle>
-                <CardDescription className="text-zinc-400 text-base">Paste raw SQL queries to automatically rewrite them for maximum performance and index utilization.</CardDescription>
-              </CardHeader>
-            </Card>
+            {/* Fluid Neural Core Orb (Background Element) */}
+            <div className={`relative w-40 h-40 sm:w-56 sm:h-56 mb-12 flex items-center justify-center transition-all duration-1000 transform ${introStep >= 1 ? 'scale-100 opacity-100' : 'scale-75 opacity-0'}`}>
+              <div className="absolute inset-0 rounded-full blur-2xl opacity-50 bg-indigo-500"></div>
+              <div className="absolute w-[120%] h-[120%] -top-[10%] -left-[10%] rounded-full mix-blend-screen filter blur-[24px] animate-blob bg-violet-500/80"></div>
+              <div className="absolute w-[110%] h-[110%] top-[0%] right-[0%] rounded-full mix-blend-screen filter blur-[20px] animate-blob animation-delay-2000 bg-cyan-400/80"></div>
+              <div className="absolute w-[100%] h-[100%] -bottom-[10%] left-[10%] rounded-full mix-blend-screen filter blur-[20px] animate-blob animation-delay-4000 bg-fuchsia-500/80"></div>
+              <div className="absolute inset-2 rounded-full border border-white/5 backdrop-blur-[2px] shadow-[inset_0_0_30px_rgba(255,255,255,0.05)]"></div>
+            </div>
 
-            {/* Tool 2 */}
-            <Card className="bg-[#111113]/80 border-zinc-800/50 backdrop-blur-xl hover:border-violet-500/50 transition-all cursor-pointer group shadow-xl" onClick={() => setView("db-analyzer")}>
-              <CardHeader>
-                <div className="w-12 h-12 bg-violet-500/10 rounded-lg flex items-center justify-center mb-4 group-hover:bg-violet-500/20 transition-colors">
-                  <SearchCode className="w-6 h-6 text-violet-400" />
-                </div>
-                <CardTitle className="text-xl text-zinc-100">Performance Analyzer</CardTitle>
-                <CardDescription className="text-zinc-400 text-base">Connect to your database to automatically fetch slow-running queries and analyze bottlenecks.</CardDescription>
-              </CardHeader>
-            </Card>
+            {/* Cinematic Fading Text */}
+            <div className={`min-h-[60px] flex flex-col items-center justify-center text-center px-4 transition-all duration-700 ${introStep === 2 ? 'mb-8' : 'mb-0'}`}>
+              <h1 className={`text-2xl md:text-3xl font-light tracking-wide leading-relaxed transition-all duration-700 ease-in-out whitespace-pre-wrap ${fadeState === 'in' ? 'opacity-100 transform translate-y-0' : 'opacity-0 transform translate-y-4'} text-zinc-100`}>
+                {introText}
+              </h1>
+            </div>
 
+            {/* Dashboard Tool Cards (Fade in after sequence) */}
+            {introStep >= 2 && (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 w-full max-w-4xl animate-in fade-in slide-in-from-bottom-8 duration-1000 mt-4">
+                
+                <Card className="bg-[#111113]/80 border-zinc-800/50 backdrop-blur-xl hover:border-indigo-500/50 hover:bg-zinc-900/80 transition-all cursor-pointer group shadow-2xl" onClick={() => setView("sql-optimizer")}>
+                  <CardHeader>
+                    <div className="w-14 h-14 bg-indigo-500/10 rounded-xl flex items-center justify-center mb-4 group-hover:bg-indigo-500/20 group-hover:scale-110 transition-all">
+                      <Code2 className="w-7 h-7 text-indigo-400" />
+                    </div>
+                    <CardTitle className="text-xl text-zinc-100 font-semibold tracking-wide">SQL Optimizer Studio</CardTitle>
+                    <CardDescription className="text-zinc-400 text-base leading-relaxed mt-2">Paste raw SQL queries to automatically rewrite them for maximum performance and index utilization.</CardDescription>
+                  </CardHeader>
+                </Card>
+
+                <Card className="bg-[#111113]/80 border-zinc-800/50 backdrop-blur-xl hover:border-violet-500/50 hover:bg-zinc-900/80 transition-all cursor-pointer group shadow-2xl" onClick={() => setView("db-analyzer")}>
+                  <CardHeader>
+                    <div className="w-14 h-14 bg-violet-500/10 rounded-xl flex items-center justify-center mb-4 group-hover:bg-violet-500/20 group-hover:scale-110 transition-all">
+                      <SearchCode className="w-7 h-7 text-violet-400" />
+                    </div>
+                    <CardTitle className="text-xl text-zinc-100 font-semibold tracking-wide">Performance Analyzer</CardTitle>
+                    <CardDescription className="text-zinc-400 text-base leading-relaxed mt-2">Connect to your database to automatically fetch slow-running queries and analyze bottlenecks.</CardDescription>
+                  </CardHeader>
+                </Card>
+
+              </div>
+            )}
           </div>
         )}
 
