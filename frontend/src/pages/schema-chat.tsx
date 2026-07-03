@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from "react";
-import { Send, Database, Zap, Bot, ShieldAlert, Sparkles, TerminalSquare, DatabaseZap, Search } from "lucide-react";
+import { Send, Mic, Activity, Network, Cpu } from "lucide-react";
 import { useAuth, SignInButton } from "@clerk/react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -19,49 +19,66 @@ export default function SchemaChatPage() {
   const setMessages = setChatMessages;
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [isListening, setIsListening] = useState(false);
   const [isFocused, setIsFocused] = useState(false);
   
-  // Cinematic Intro Sequence
+  // Animation States for Cinematic Intro
   const [introStep, setIntroStep] = useState(0); 
-  const [greetingText, setGreetingText] = useState("");
-  const [subtitleText, setSubtitleText] = useState("");
+  const [introText, setIntroText] = useState("");
+  const [fadeState, setFadeState] = useState<"in" | "out">("in");
+  const [randomHex, setRandomHex] = useState<string>("0x0000");
   
   const scrollRef = useRef<HTMLDivElement>(null);
   const { getToken, isSignedIn } = useAuth();
   const clearChat = useAppStore((state) => state.clearChat);
 
-  // Elegant Software Boot Sequence
+  // Cinematic Intro Sequence (Fluid Fade In/Out)
   useEffect(() => {
-    clearChat(); // Fresh start
-    
+    clearChat(); // Always wipe on fresh load
+    setIntroStep(1);
+
     const sequence = async () => {
+      // Small pause on mount
       await new Promise(r => setTimeout(r, 500));
-      setIntroStep(1);
       
-      const greeting = "Hello.";
-      let curr = "";
-      for (let i = 0; i < greeting.length; i++) {
-        curr += greeting[i];
-        setGreetingText(curr);
-        await new Promise(r => setTimeout(r, 60));
-      }
+      // Step 1: "Hello."
+      setIntroText("Hello.");
+      setFadeState("in");
+      await new Promise(r => setTimeout(r, 1800));
       
-      await new Promise(r => setTimeout(r, 600));
+      setFadeState("out");
+      await new Promise(r => setTimeout(r, 800));
+      
+      // Step 2: Main Intro
       setIntroStep(2);
-      
-      const subtitle = "I am QuerySage. Your intelligent database assistant.\nI can optimize SQL, analyze schemas, and secure your infrastructure.";
-      curr = "";
-      for (let i = 0; i < subtitle.length; i++) {
-        curr += subtitle[i];
-        setSubtitleText(curr);
-        await new Promise(r => setTimeout(r, 30));
+      setIntroText("I am QuerySage.\nYour database intelligence.");
+      setFadeState("in");
+      await new Promise(r => setTimeout(r, 2500));
+
+      setFadeState("out");
+      await new Promise(r => setTimeout(r, 800));
+
+      // Step 3: Awaiting
+      setIntroStep(3);
+      if (isSignedIn) {
+        setIntroText("How may I assist you today?");
+      } else {
+        setIntroText("Authentication required to access the core.");
       }
+      setFadeState("in");
       
       await new Promise(r => setTimeout(r, 800));
-      setIntroStep(3); // Show input
+      setIntroStep(4); // Input box appears
     };
 
     sequence();
+
+    // Random hex generator for minimal background HUD
+    const hexInterval = setInterval(() => {
+      setRandomHex("0x" + Math.floor(Math.random()*16777215).toString(16).toUpperCase().padStart(6, '0'));
+    }, 100);
+
+    return () => clearInterval(hexInterval);
   }, [isSignedIn]);
 
   // Auto-scroll
@@ -72,7 +89,41 @@ export default function SchemaChatPage() {
         scrollElement.scrollTop = scrollElement.scrollHeight;
       }, 100);
     }
-  }, [messages, isLoading]);
+  }, [messages, isListening, introStep]);
+
+  const toggleListening = () => {
+    if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
+      toast.error("Voice recognition is not supported in this browser.");
+      return;
+    }
+
+    if (isListening) {
+      setIsListening(false);
+      return;
+    }
+
+    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    const recognition = new SpeechRecognition();
+    
+    recognition.continuous = false;
+    recognition.interimResults = false;
+    recognition.lang = 'en-US';
+
+    recognition.onstart = () => setIsListening(true);
+    
+    recognition.onresult = (event: any) => {
+      const transcript = event.results[0][0].transcript;
+      setInput(transcript);
+      setIsListening(false);
+      setTimeout(() => {
+         document.getElementById("jarvis-send-btn")?.click();
+      }, 500);
+    };
+
+    recognition.onerror = () => setIsListening(false);
+    recognition.onend = () => setIsListening(false);
+    recognition.start();
+  };
 
   const handleSend = async () => {
     if (!input.trim()) return;
@@ -85,7 +136,7 @@ export default function SchemaChatPage() {
         { role: "user", content: userMessage },
         { 
           role: "assistant", 
-          content: "Authentication required. Please sign in to connect to the database kernel.",
+          content: "Authentication required to interact with the database core. Please sign in.",
           isAuthWarning: true 
         }
       ]);
@@ -177,160 +228,176 @@ export default function SchemaChatPage() {
   };
 
   return (
-    <div className="h-full flex w-full bg-[#0A0A0B] text-zinc-100 relative overflow-hidden font-sans selection:bg-indigo-500/30">
+    <div className="h-full flex w-full bg-[#050505] relative overflow-hidden font-sans text-zinc-50">
       
-      {/* Premium Desktop Software Background: Deep dark with subtle, elegant gradients */}
-      <div className="absolute inset-0 z-0 overflow-hidden pointer-events-none">
+      {/* Subtle Background Elements */}
+      <div className="absolute inset-0 z-0 pointer-events-none">
         <div className="absolute top-[-20%] left-[-10%] w-[50%] h-[50%] bg-indigo-900/10 blur-[120px] rounded-full"></div>
         <div className="absolute bottom-[-20%] right-[-10%] w-[50%] h-[50%] bg-violet-900/10 blur-[120px] rounded-full"></div>
-        {/* Subtle noise texture */}
-        <div className="absolute inset-0 opacity-[0.015] bg-[url('https://grainy-gradients.vercel.app/noise.svg')]"></div>
       </div>
 
-      {/* Main Container */}
-      <div className="flex-1 flex flex-col h-full relative z-10 w-full max-w-5xl mx-auto">
+      {/* Main Content Area */}
+      <div className="flex-1 flex flex-col min-h-0 relative z-10 w-full pt-16">
         
-        {/* Scrollable Content Area */}
-        <div className="flex-1 w-full px-4 sm:px-8 overflow-y-auto custom-scrollbar flex flex-col pt-24 pb-8" ref={scrollRef}>
-            
+        <div className="flex-1 w-full px-4 md:px-8 max-w-5xl mx-auto overflow-y-auto custom-scrollbar" ref={scrollRef}>
             {messages.length === 0 ? (
               
-              /* Elegant Onboarding Experience */
-              <div className="flex-1 flex flex-col justify-center max-w-3xl mx-auto w-full animate-in fade-in duration-1000">
+              /* Cinematic AI Core Empty State */
+              <div className="h-full min-h-[75vh] flex flex-col items-center justify-center">
                 
-                {/* Greeting */}
-                <h1 className="text-4xl sm:text-5xl md:text-6xl font-medium tracking-tight text-white mb-6">
-                  {greetingText}
-                  {introStep === 1 && <span className="animate-pulse ml-1 text-zinc-500">|</span>}
-                </h1>
+                {/* Fluid Neural Core Orb */}
+                <div className={`relative w-48 h-48 sm:w-64 sm:h-64 mb-16 flex items-center justify-center transition-all duration-1000 transform ${introStep >= 1 ? 'scale-100 opacity-100' : 'scale-75 opacity-0'}`}>
+                  
+                  {/* Base Glow */}
+                  <div className={`absolute inset-0 rounded-full blur-2xl opacity-60 transition-colors duration-1000 ${
+                    !isSignedIn ? 'bg-red-500' : isListening ? 'bg-amber-400' : 'bg-indigo-500'
+                  }`}></div>
+
+                  {/* Orb 1: Violet/Pink */}
+                  <div className={`absolute w-[120%] h-[120%] -top-[10%] -left-[10%] rounded-full mix-blend-screen filter blur-[24px] animate-blob transition-colors duration-1000 ${
+                    !isSignedIn ? 'bg-rose-500/80' : isListening ? 'bg-yellow-400/80' : 'bg-violet-500/80'
+                  }`}></div>
+                  
+                  {/* Orb 2: Cyan/Blue */}
+                  <div className={`absolute w-[110%] h-[110%] top-[0%] right-[0%] rounded-full mix-blend-screen filter blur-[20px] animate-blob animation-delay-2000 transition-colors duration-1000 ${
+                    !isSignedIn ? 'bg-orange-500/80' : isListening ? 'bg-orange-400/80' : 'bg-cyan-400/80'
+                  }`}></div>
+                  
+                  {/* Orb 3: Fuchsia/Purple */}
+                  <div className={`absolute w-[100%] h-[100%] -bottom-[10%] left-[10%] rounded-full mix-blend-screen filter blur-[20px] animate-blob animation-delay-4000 transition-colors duration-1000 ${
+                    !isSignedIn ? 'bg-red-600/80' : isListening ? 'bg-amber-500/80' : 'bg-fuchsia-500/80'
+                  }`}></div>
+
+                  {/* Core Surface for depth */}
+                  <div className="absolute inset-2 rounded-full border border-white/5 backdrop-blur-[2px] shadow-[inset_0_0_30px_rgba(255,255,255,0.05)]"></div>
+                  
+                  {/* Pulse Effect when listening */}
+                  {isListening && (
+                    <div className="absolute inset-[-10%] rounded-full border border-amber-400/40 animate-ping" style={{ animationDuration: '2s' }}></div>
+                  )}
+                </div>
                 
-                {/* Subtitle */}
-                <div className="min-h-[80px]">
-                  <p className="text-xl sm:text-2xl text-zinc-400 font-light leading-relaxed whitespace-pre-wrap">
-                    {subtitleText}
-                    {introStep === 2 && <span className="animate-pulse ml-1 text-zinc-600">|</span>}
-                  </p>
+                {/* Cinematic Fading Text */}
+                <div className="min-h-[100px] flex flex-col items-center justify-center text-center px-4">
+                  <h1 className={`text-3xl md:text-4xl lg:text-5xl font-light tracking-wide leading-relaxed max-w-3xl mx-auto transition-all duration-700 ease-in-out whitespace-pre-wrap ${fadeState === 'in' ? 'opacity-100 transform translate-y-0' : 'opacity-0 transform translate-y-4'} ${!isSignedIn ? 'text-red-100' : 'text-zinc-50'}`}>
+                    {introText}
+                  </h1>
                 </div>
 
-                {/* Authentication Block if not signed in */}
-                {!isSignedIn && introStep >= 3 && (
-                   <div className="mt-12 animate-in fade-in slide-in-from-bottom-4 duration-700">
-                     <div className="bg-zinc-900/50 border border-zinc-800/80 rounded-2xl p-6 backdrop-blur-md flex items-center justify-between">
-                       <div>
-                         <h3 className="text-zinc-200 font-medium mb-1">Authentication Required</h3>
-                         <p className="text-zinc-500 text-sm">Please sign in to access the database assistant.</p>
-                       </div>
-                       <SignInButton mode="modal" forceRedirectUrl="/">
-                          <Button className="bg-white hover:bg-zinc-200 text-black rounded-lg px-6 font-medium shadow-lg transition-all">
-                            Sign In
-                          </Button>
-                       </SignInButton>
-                     </div>
+                {/* Login Button (Fades in if unauthenticated and text is done) */}
+                {!isSignedIn && introStep >= 4 && (
+                   <div className="mt-12 animate-in fade-in slide-in-from-bottom-4 duration-1000">
+                     <SignInButton mode="modal" forceRedirectUrl="/">
+                        <Button className="bg-white hover:bg-zinc-200 text-black shadow-[0_0_20px_rgba(255,255,255,0.2)] rounded-full px-10 py-6 text-sm font-medium transition-all">
+                          Authenticate to Continue
+                        </Button>
+                     </SignInButton>
                    </div>
                 )}
               </div>
               
             ) : (
               
-              /* Sleek Software Chat Interface */
-              <div className="flex flex-col space-y-8 w-full mx-auto">
+              /* Output Panels (No Chatbot Bubbles) */
+              <div className="space-y-12 py-8 w-full max-w-4xl mx-auto mb-32">
                 {messages.map((msg: ChatMessage, idx: number) => (
-                  <div key={idx} className={`flex flex-col w-full animate-in fade-in slide-in-from-bottom-2 duration-300`}>
+                  <div key={idx} className={`w-full flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
                     
                     {msg.role === "user" ? (
-                      /* User Message: Prominent, large text like a document header */
-                      <div className="w-full mb-2 group">
-                        <div className="flex items-center gap-3 text-zinc-500 mb-2">
-                           <div className="w-6 h-6 rounded-full bg-zinc-800 flex items-center justify-center">
-                             <Search className="w-3 h-3 text-zinc-400" />
-                           </div>
-                           <span className="text-xs font-medium tracking-wider uppercase">Query</span>
-                        </div>
-                        <div className="text-xl md:text-2xl font-medium text-zinc-100 whitespace-pre-wrap leading-relaxed pl-9">
-                          {msg.content}
-                        </div>
+                      /* User Input: Minimalist text */
+                      <div className="max-w-[75%] border-r-2 border-indigo-500/50 pr-6 text-right">
+                         <div className="text-[10px] text-zinc-500 font-medium tracking-widest mb-2 uppercase">Your Query</div>
+                         <div className="text-xl md:text-2xl font-light text-zinc-100 whitespace-pre-wrap tracking-wide leading-relaxed">
+                           {msg.content}
+                         </div>
                       </div>
                     ) : (
-                      /* AI Response: Structured software block */
-                      <div className="w-full pl-9">
-                        <div className="flex items-center gap-3 text-indigo-400/80 mb-3 ml-[-36px]">
-                           <div className="w-6 h-6 rounded-full bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center">
-                             <Sparkles className="w-3 h-3 text-indigo-400" />
-                           </div>
-                           <span className="text-xs font-medium tracking-wider uppercase">QuerySage</span>
-                        </div>
-                        
-                        <div className={`prose prose-zinc dark:prose-invert max-w-none prose-p:leading-relaxed prose-pre:bg-[#111113] prose-pre:border prose-pre:border-zinc-800/80 prose-pre:rounded-xl text-[15px] md:text-[16px] text-zinc-300 ${msg.isAuthWarning ? 'text-red-400 bg-red-950/20 border border-red-900/30 p-4 rounded-xl' : ''}`}>
+                      /* AI Output: Structured software panel */
+                      <div className={`w-full max-w-[95%] border-l-2 pl-6 bg-gradient-to-r py-5 rounded-r-3xl shadow-sm ${msg.isAuthWarning ? 'border-red-500/50 from-red-950/20 to-transparent' : 'border-indigo-500/40 from-indigo-950/10 to-transparent'}`}>
+                         <div className="text-[10px] text-zinc-500 font-medium tracking-widest mb-3 uppercase flex items-center gap-2">
+                           <div className={`w-2 h-2 rounded-full animate-pulse ${msg.isAuthWarning ? 'bg-red-500' : 'bg-indigo-400'}`}></div>
+                           QuerySage Output
+                         </div>
+                         <div className={`prose prose-base md:prose-lg dark:prose-invert max-w-none prose-p:leading-loose prose-pre:bg-[#0a0a0c] prose-pre:border prose-pre:border-zinc-800/80 prose-pre:rounded-xl font-light tracking-wide ${msg.isAuthWarning ? 'text-red-200' : 'text-zinc-200'}`}>
                            <ReactMarkdown>{msg.content}</ReactMarkdown>
-                           
                            {msg.isAuthWarning && (
-                              <div className="mt-4 pt-4 border-t border-red-900/30">
+                              <div className="mt-8">
                                 <SignInButton mode="modal" forceRedirectUrl="/">
-                                   <Button className="bg-white hover:bg-zinc-200 text-black rounded-lg px-6 text-sm font-medium transition-all">
-                                     Sign In to Continue
+                                   <Button className="bg-red-950/40 border border-red-500/40 hover:bg-red-900/60 text-red-200 text-sm rounded-lg px-6 transition-all">
+                                     Authenticate
                                    </Button>
                                 </SignInButton>
                               </div>
                            )}
-                        </div>
+                         </div>
                       </div>
                     )}
 
                   </div>
                 ))}
                 
-                {/* Loading State */}
                 {isLoading && messages[messages.length - 1]?.role === "user" && (
-                  <div className="w-full pl-9 animate-in fade-in duration-300">
-                     <div className="flex items-center gap-3 text-zinc-500 ml-[-36px]">
-                       <div className="w-6 h-6 rounded-full bg-zinc-800/50 flex items-center justify-center">
-                         <div className="w-3 h-3 border-2 border-zinc-500 border-t-transparent rounded-full animate-spin"></div>
-                       </div>
-                       <span className="text-xs font-medium tracking-wider uppercase">Analyzing...</span>
-                     </div>
+                  <div className="w-full flex justify-start animate-in fade-in duration-300">
+                    <div className="border-l-2 border-indigo-500/40 pl-6 py-2 bg-gradient-to-r from-indigo-950/10 to-transparent rounded-r-3xl w-64">
+                      <div className="text-zinc-400 font-mono text-xs tracking-widest flex items-center gap-3">
+                        <div className="w-3 h-3 border-2 border-indigo-400 border-t-transparent rounded-full animate-spin"></div>
+                        PROCESSING...
+                      </div>
+                    </div>
                   </div>
                 )}
               </div>
             )}
         </div>
         
-        {/* Raycast-style Command Input */}
-        {(messages.length > 0 || introStep >= 3) && isSignedIn && (
-          <div className="w-full px-4 sm:px-8 pb-8 pt-4 shrink-0 animate-in fade-in slide-in-from-bottom-8 duration-700">
-              <form onSubmit={(e) => { e.preventDefault(); handleSend(); }} className="relative w-full max-w-3xl mx-auto">
+        {/* Glassmorphic Input Console (Always active when ready) */}
+        {(messages.length > 0 || introStep >= 4) && (
+          <div className="w-full max-w-3xl mx-auto px-4 md:px-8 pb-8 pt-4 shrink-0 z-20 animate-in fade-in slide-in-from-bottom-8 duration-1000">
+              <form onSubmit={(e) => { e.preventDefault(); handleSend(); }} className="relative w-full group flex items-center">
                 
-                <div className={`relative flex items-center w-full bg-[#18181B]/80 backdrop-blur-xl border rounded-2xl overflow-hidden transition-all duration-300 shadow-2xl ${
-                  isFocused ? 'border-zinc-600 shadow-[0_0_0_1px_rgba(82,82,91,0.5)]' : 'border-zinc-800 shadow-black/50'
+                {/* Ambient glow behind input */}
+                <div className={`absolute -inset-1 rounded-full blur-xl opacity-20 transition duration-500 ${!isSignedIn ? 'bg-red-500' : isListening ? 'bg-amber-400' : 'bg-indigo-500'}`}></div>
+                
+                <div className={`relative flex items-center w-full bg-[#111113]/80 backdrop-blur-2xl border rounded-full overflow-hidden transition-all duration-300 shadow-2xl ${
+                  isFocused ? (!isSignedIn ? 'border-red-500/50' : 'border-indigo-500/50 shadow-[0_0_0_1px_rgba(99,102,241,0.2)]') 
+                            : (!isSignedIn ? 'border-red-500/20' : 'border-white/10')
                 }`}>
                   
-                  <div className="pl-4 pr-2 text-zinc-500">
-                    <TerminalSquare className="w-5 h-5" />
+                  {/* Voice Input Button */}
+                  <div className="flex items-center justify-center pl-2">
+                     <Button
+                       type="button"
+                       onClick={toggleListening}
+                       variant="ghost"
+                       size="icon"
+                       className={`rounded-full h-12 w-12 transition-all ${isListening ? 'text-amber-400 bg-amber-400/10 animate-pulse' : 'text-zinc-500 hover:text-zinc-300'}`}
+                     >
+                       <Mic className="w-5 h-5" />
+                     </Button>
                   </div>
 
                   <Input
-                    placeholder="Ask QuerySage about your database..."
+                    placeholder={isListening ? "Listening..." : "Query your database..."}
                     value={input}
                     onChange={(e) => setInput(e.target.value)}
                     onFocus={() => setIsFocused(true)}
                     onBlur={() => setIsFocused(false)}
                     disabled={isLoading}
-                    className="relative w-full h-14 border-none bg-transparent focus-visible:ring-0 text-[16px] text-zinc-100 placeholder:text-zinc-600 font-medium"
+                    className="relative w-full h-14 border-none bg-transparent focus-visible:ring-0 text-[16px] text-zinc-100 placeholder:text-zinc-600 font-medium px-2"
                   />
 
-                  <div className="pr-3 pl-2">
+                  {/* Send Button */}
+                  <div className="flex items-center justify-center pr-2">
                     <Button 
+                      id="jarvis-send-btn"
                       type="submit" 
                       disabled={!input.trim() || isLoading}
-                      size="sm"
-                      className="rounded-lg h-9 w-9 bg-white hover:bg-zinc-200 text-black transition-all disabled:opacity-20 flex items-center justify-center"
+                      size="icon"
+                      className={`rounded-full h-10 w-10 transition-all disabled:opacity-20 flex items-center justify-center ${!isSignedIn ? 'bg-red-500 hover:bg-red-400 text-white' : isListening ? 'bg-amber-400 hover:bg-amber-300 text-black' : 'bg-white hover:bg-zinc-200 text-black'}`}
                     >
                       <Send className="w-4 h-4 ml-0.5" />
                     </Button>
                   </div>
-                </div>
-                
-                <div className="text-center mt-3 text-xs text-zinc-600 font-medium tracking-wide">
-                  QuerySage DB Assistant Software • Secure Connection
                 </div>
               </form>
           </div>
