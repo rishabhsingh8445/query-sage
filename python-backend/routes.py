@@ -370,7 +370,7 @@ async def slow_queries(creds: MonitorCredentials):
                         queries = [{"query": row[0], "execution_time_ms": float(row[1] or 0), "calls": 1} for row in res if row[0]]
                     return {"queries": queries}
             elif creds.db_type.lower() == "mysql":
-                db_url = f"mysql+mysqlconnector://{creds.username}:{creds.password}@{creds.host}:{creds.port}/{creds.database}"
+                db_url = f"mysql+pymysql://{creds.username}:{creds.password}@{creds.host}:{creds.port}/{creds.database}"
                 engine = create_engine(db_url, connect_args={"connect_timeout": 5})
                 with engine.connect() as conn:
                     try:

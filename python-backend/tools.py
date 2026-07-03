@@ -2,7 +2,7 @@ import json
 from langchain_core.tools import tool
 import psycopg2
 import psycopg2.extras
-import mysql.connector
+import pymysql
 
 class DbConfig:
     def __init__(self, db_type, host=None, port=None, database=None, user=None, password=None):
@@ -36,15 +36,16 @@ def create_tools(db_config: DbConfig, on_trace):
             finally:
                 conn.close()
         else:
-            conn = mysql.connector.connect(
+            conn = pymysql.connect(
                 host=db_config.host,
                 port=db_config.port,
                 database=db_config.database,
                 user=db_config.user,
-                password=db_config.password
+                password=db_config.password,
+                cursorclass=pymysql.cursors.DictCursor
             )
             try:
-                with conn.cursor(dictionary=True) as cur:
+                with conn.cursor() as cur:
                     cur.execute(query)
                     return cur.fetchall()
             finally:
