@@ -21,6 +21,7 @@ export default function SchemaChatPage() {
   const clerk = useClerk();
   const [view, setView] = useState<ViewState>("dashboard");
   const [isLoaded, setIsLoaded] = useState(false);
+  const [introStep, setIntroStep] = useState(0);
 
   // SQL Optimizer State
   const [rawSql, setRawSql] = useState("");
@@ -33,8 +34,17 @@ export default function SchemaChatPage() {
 
   useEffect(() => {
     // Initial fade in for the "Wow" entrance
-    const timer = setTimeout(() => setIsLoaded(true), 100);
-    return () => clearTimeout(timer);
+    const timer1 = setTimeout(() => setIsLoaded(true), 100);
+    
+    // Cinematic Intro Sequence
+    const seq1 = setTimeout(() => setIntroStep(1), 2500);
+    const seq2 = setTimeout(() => setIntroStep(2), 5000);
+    
+    return () => {
+      clearTimeout(timer1);
+      clearTimeout(seq1);
+      clearTimeout(seq2);
+    };
   }, []);
 
   const handleOptimize = async (sqlToOptimize: string) => {
@@ -154,7 +164,7 @@ export default function SchemaChatPage() {
            </div>
         </div>
         
-        {!isSignedIn && (
+        {!isSignedIn && introStep === 2 && (
            <SignInButton mode="modal" forceRedirectUrl="/">
               <Button className="bg-white text-black hover:bg-zinc-200 font-semibold px-6 py-2 h-9 rounded-full text-sm shadow-lg shadow-white/10 transition-all hover:scale-105 active:scale-95">
                 Sign In
@@ -165,9 +175,26 @@ export default function SchemaChatPage() {
 
       <div className="relative z-10 w-full max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 flex-1 flex flex-col min-h-0 py-12">
 
+        {/* --- CINEMATIC INTRO --- */}
+        {introStep === 0 && (
+          <div className="flex-1 flex items-center justify-center animate-in fade-in zoom-in-95 duration-1000 fill-mode-both">
+            <h1 className="text-4xl md:text-5xl font-mono text-zinc-300 tracking-tight">
+               Hi, I'm <span className="gradient-text-primary font-bold">Query Sage.</span>
+            </h1>
+          </div>
+        )}
+
+        {introStep === 1 && (
+          <div className="flex-1 flex items-center justify-center animate-in fade-in zoom-in-95 duration-1000 fill-mode-both">
+            <h1 className="text-3xl md:text-4xl font-mono text-zinc-400 tracking-tight">
+               Please select one option.
+            </h1>
+          </div>
+        )}
+
         {/* --- LEVEL 1: DASHBOARD --- */}
-        {view === "dashboard" && (
-          <div className="flex flex-col items-center justify-center flex-1 min-h-0 w-full animate-in zoom-in-95 fade-in duration-700 slide-in-from-bottom-4">
+        {introStep === 2 && view === "dashboard" && (
+          <div className="flex flex-col items-center justify-center flex-1 min-h-0 w-full animate-in zoom-in-95 fade-in duration-1000 fill-mode-both slide-in-from-bottom-8">
             
             <div className="text-center mb-16 space-y-4">
               <h2 className="text-4xl md:text-6xl font-bold tracking-tight text-white">
