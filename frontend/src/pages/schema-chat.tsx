@@ -1,27 +1,26 @@
 import { useState, useEffect } from "react";
 import { useAuth, SignInButton, useClerk } from "@clerk/react";
 import { Button } from "@/components/ui/button";
+import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
-import { ArrowLeft, Database, Code2, Zap, SearchCode, Loader2, Activity, Network, Blocks } from "lucide-react";
+import { Label } from "@/components/ui/label";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { ArrowLeft, Database, Code2, Zap, SearchCode, Loader2, Activity } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import { toast } from "sonner";
 
-type ViewState = 
-  | "dashboard" 
-  | "query-suboptions" 
-  | "telemetry-suboptions" 
-  | "sql-optimizer" 
-  | "schema-architect" 
-  | "db-analyzer-slow" 
-  | "db-analyzer-active";
+type ViewState = "dashboard" | "sql-optimizer" | "db-analyzer";
 
 export default function SchemaChatPage() {
   const { getToken, isSignedIn } = useAuth();
   const clerk = useClerk();
   const [view, setView] = useState<ViewState>("dashboard");
-  const [isLoaded, setIsLoaded] = useState(false);
-  const [introStep, setIntroStep] = useState(0);
+  
+  // Cinematic Intro State
+  const [introStep, setIntroStep] = useState(0); 
+  const [introText, setIntroText] = useState("");
+  const [fadeState, setFadeState] = useState<"in" | "out">("in");
 
   // SQL Optimizer State
   const [rawSql, setRawSql] = useState("");
@@ -31,25 +30,34 @@ export default function SchemaChatPage() {
   // DB Analyzer State
   const [isConnected, setIsConnected] = useState(false);
   const [isConnecting, setIsConnecting] = useState(false);
-
+  
   useEffect(() => {
-    // Initial fade in for the "Wow" entrance
-    const timer1 = setTimeout(() => setIsLoaded(true), 100);
+    // Only play intro when entering the dashboard
+    if (view !== "dashboard") return;
     
-    // Cinematic Intro Sequence
-    const seq1 = setTimeout(() => setIntroStep(1), 2500);
-    const seq2 = setTimeout(() => setIntroStep(2), 5000);
-    
-    return () => {
-      clearTimeout(timer1);
-      clearTimeout(seq1);
-      clearTimeout(seq2);
+    setIntroStep(1);
+    const sequence = async () => {
+      await new Promise(r => setTimeout(r, 500));
+      
+      setIntroText("Hello. I am QuerySage.");
+      setFadeState("in");
+      await new Promise(r => setTimeout(r, 2000));
+      
+      setFadeState("out");
+      await new Promise(r => setTimeout(r, 800));
+      
+      setIntroText("Please select an option to begin.");
+      setFadeState("in");
+      await new Promise(r => setTimeout(r, 1500));
+      
+      setIntroStep(2); // Unlocks the dashboard cards to fade in
     };
-  }, []);
+    sequence();
+  }, [view]);
 
   const handleOptimize = async (sqlToOptimize: string) => {
     if (!isSignedIn) {
-      toast.error("Please authenticate first.");
+      toast.error("Please sign in to run optimizations.");
       return;
     }
     if (!sqlToOptimize.trim()) return;
@@ -72,7 +80,7 @@ export default function SchemaChatPage() {
         }),
       });
 
-      if (!response.ok) throw new Error("Connection failed.");
+      if (!response.ok) throw new Error("Backend connection failed.");
 
       const reader = response.body?.getReader();
       const decoder = new TextDecoder();
@@ -96,7 +104,7 @@ export default function SchemaChatPage() {
             if (currentEvent === "error") {
               try {
                 const errorMsg = JSON.parse(dataStr);
-                setOptimizedOutput(prev => prev + `\n\n[ Error: ${errorMsg} ]`);
+                setOptimizedOutput(prev => prev + `\n\n⚠️ **Error:** ${errorMsg}`);
               } catch (e) {}
               continue;
             }
@@ -112,7 +120,7 @@ export default function SchemaChatPage() {
       }
     } catch (err) {
       console.error(err);
-      setOptimizedOutput("Analysis failed. Please try again.");
+      setOptimizedOutput("⚠️ **Backend Connection Failed:**\n\nCould not connect to the Python backend. Ensure that your backend is running locally or deployed, and `VITE_API_URL` is configured.");
     } finally {
       setIsOptimizing(false);
     }
@@ -128,7 +136,7 @@ export default function SchemaChatPage() {
     await new Promise(r => setTimeout(r, 1500));
     setIsConnecting(false);
     setIsConnected(true);
-    toast.success("Database connected successfully.");
+    toast.success("Connected to database securely!");
   };
 
   const MOCK_SLOW_QUERIES = [
@@ -137,314 +145,220 @@ export default function SchemaChatPage() {
     { id: 3, query: "SELECT u.name, p.title FROM users u JOIN posts p ON u.id = p.author_id ORDER BY p.created_at DESC", duration: "610ms", calls: 350 },
   ];
 
-  const goBack = () => {
-    if (view === "sql-optimizer" || view === "schema-architect") setView("query-suboptions");
-    else if (view === "db-analyzer-slow" || view === "db-analyzer-active") setView("telemetry-suboptions");
-    else setView("dashboard");
-  };
-
   return (
-    <div className={`h-full w-full relative overflow-hidden flex flex-col font-sans transition-opacity duration-1000 ${isLoaded ? 'opacity-100' : 'opacity-0'}`}>
+    <div className="h-full w-full bg-[#050505] relative overflow-hidden flex flex-col font-sans text-zinc-50">
       
-      {/* Mesh Background */}
-      <div className="mesh-bg-container">
-        <div className="mesh-orb mesh-orb-1"></div>
-        <div className="mesh-orb mesh-orb-2"></div>
-        <div className="mesh-orb mesh-orb-3"></div>
+      {/* Subtle Background Elements */}
+      <div className="fixed inset-0 z-0 pointer-events-none">
+        <div className="absolute top-[-20%] left-[-10%] w-[50%] h-[50%] bg-indigo-900/10 blur-[120px] rounded-full"></div>
+        <div className="absolute bottom-[-20%] right-[-10%] w-[50%] h-[50%] bg-violet-900/10 blur-[120px] rounded-full"></div>
       </div>
 
-      {/* Premium Header */}
-      <div className="relative z-20 w-full px-8 py-6 flex items-center justify-between shrink-0 border-b border-white/5 bg-[#030305]/60 backdrop-blur-xl">
-        <div className="flex items-center gap-6">
+      {/* Header (Full Width, Top Corners) */}
+      <div className="relative z-20 w-full px-6 py-6 flex items-center justify-between shrink-0">
+        <div className="flex items-center gap-3">
            {view !== "dashboard" && (
-              <Button variant="ghost" size="icon" onClick={goBack} className="text-zinc-400 hover:text-white hover:bg-white/10 transition-colors rounded-full">
+              <Button variant="ghost" size="icon" onClick={() => setView("dashboard")} className="text-zinc-400 hover:text-white mr-2">
                 <ArrowLeft className="w-5 h-5" />
               </Button>
            )}
-           <div className="flex items-center gap-3">
-              <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-fuchsia-500 to-indigo-500 flex items-center justify-center shadow-lg shadow-indigo-500/20">
-                <Database className="w-4 h-4 text-white" />
-              </div>
-              <h1 className="text-xl font-bold tracking-tight text-zinc-100">
+           <div>
+              <h1 className="text-2xl font-bold tracking-tight text-white flex items-center gap-2">
+                 <Database className="w-5 h-5 text-indigo-400" />
                  QuerySage
               </h1>
+              <p className="text-xs text-zinc-400 mt-1">Enterprise Database Intelligence Toolkit</p>
            </div>
         </div>
         
-        {!isSignedIn && introStep === 2 && (
+        {!isSignedIn && (
            <SignInButton mode="modal" forceRedirectUrl="/">
-              <Button className="bg-white text-black hover:bg-zinc-200 font-semibold px-6 py-2 h-9 rounded-full text-sm shadow-lg shadow-white/10 transition-all hover:scale-105 active:scale-95">
-                Sign In
+              <Button className="bg-white hover:bg-zinc-200 text-black font-medium px-6 py-2 h-9 rounded-lg text-sm">
+                Authenticate
               </Button>
            </SignInButton>
         )}
       </div>
 
-      <div className="relative z-10 w-full max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 flex-1 flex flex-col min-h-0 py-12">
+      <div className="relative z-10 w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex-1 flex flex-col min-h-0 pb-6">
 
-        {/* --- CINEMATIC INTRO --- */}
-        {introStep === 0 && (
-          <div className="flex-1 flex items-center justify-center animate-in fade-in zoom-in-95 duration-1000 fill-mode-both">
-            <h1 className="text-4xl md:text-5xl font-mono text-zinc-300 tracking-tight">
-               Hi, I'm <span className="gradient-text-primary font-bold">Query Sage.</span>
-            </h1>
-          </div>
-        )}
-
-        {introStep === 1 && (
-          <div className="flex-1 flex items-center justify-center animate-in fade-in zoom-in-95 duration-1000 fill-mode-both">
-            <h1 className="text-3xl md:text-4xl font-mono text-zinc-400 tracking-tight">
-               Please select one option.
-            </h1>
-          </div>
-        )}
-
-        {/* --- LEVEL 1: DASHBOARD --- */}
-        {introStep === 2 && view === "dashboard" && (
-          <div className="flex flex-col items-center justify-center flex-1 min-h-0 w-full animate-in zoom-in-95 fade-in duration-1000 fill-mode-both slide-in-from-bottom-8">
+        {/* --- VIEW: DASHBOARD --- */}
+        {view === "dashboard" && (
+          <div className="flex flex-col items-center justify-center flex-1 min-h-0">
             
-            <div className="text-center mb-16 space-y-4">
-              <h2 className="text-4xl md:text-6xl font-bold tracking-tight text-white">
-                Intelligence for your <span className="gradient-text-primary">Database</span>
-              </h2>
-              <p className="text-zinc-400 text-lg md:text-xl max-w-2xl mx-auto">
-                Select a module to optimize queries, analyze schema, or monitor live database telemetry.
-              </p>
+            {/* Fluid Neural Core Orb (Background Element) */}
+            <div className={`relative w-40 h-40 sm:w-56 sm:h-56 mb-12 flex items-center justify-center transition-all duration-1000 transform ${introStep >= 1 ? 'scale-100 opacity-100' : 'scale-75 opacity-0'}`}>
+              <div className="absolute inset-0 rounded-full blur-2xl opacity-50 bg-indigo-500"></div>
+              <div className="absolute w-[120%] h-[120%] -top-[10%] -left-[10%] rounded-full mix-blend-screen filter blur-[24px] animate-blob bg-violet-500/80"></div>
+              <div className="absolute w-[110%] h-[110%] top-[0%] right-[0%] rounded-full mix-blend-screen filter blur-[20px] animate-blob animation-delay-2000 bg-cyan-400/80"></div>
+              <div className="absolute w-[100%] h-[100%] -bottom-[10%] left-[10%] rounded-full mix-blend-screen filter blur-[20px] animate-blob animation-delay-4000 bg-fuchsia-500/80"></div>
+              <div className="absolute inset-2 rounded-full border border-white/5 backdrop-blur-[2px] shadow-[inset_0_0_30px_rgba(255,255,255,0.05)]"></div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-8 w-full max-w-4xl">
-              
-              {/* Option 1 */}
-              <div 
-                className="premium-card p-10 cursor-pointer group flex flex-col items-center text-center h-64 justify-center"
-                onClick={() => {
-                  if (!isSignedIn) clerk.openSignIn();
-                  else setView("query-suboptions");
-                }}
-              >
-                <div className="w-16 h-16 rounded-2xl bg-fuchsia-500/10 flex items-center justify-center mb-6 group-hover:scale-110 transition-transform duration-500 shadow-lg shadow-fuchsia-500/20 group-hover:bg-fuchsia-500/20">
-                   <Code2 className="w-8 h-8 text-fuchsia-400" />
-                </div>
-                <h3 className="text-2xl font-bold text-white mb-3">Query Intelligence</h3>
-                <p className="text-zinc-400 leading-relaxed">AI-powered optimization for your queries and database schema structures.</p>
-              </div>
-
-              {/* Option 2 */}
-              <div 
-                className="premium-card p-10 cursor-pointer group flex flex-col items-center text-center h-64 justify-center"
-                onClick={() => {
-                  if (!isSignedIn) clerk.openSignIn();
-                  else setView("telemetry-suboptions");
-                }}
-              >
-                <div className="w-16 h-16 rounded-2xl bg-cyan-500/10 flex items-center justify-center mb-6 group-hover:scale-110 transition-transform duration-500 shadow-lg shadow-cyan-500/20 group-hover:bg-cyan-500/20">
-                   <Activity className="w-8 h-8 text-cyan-400" />
-                </div>
-                <h3 className="text-2xl font-bold text-white mb-3">Database Telemetry</h3>
-                <p className="text-zinc-400 leading-relaxed">Connect securely to your database to analyze live bottlenecks and slow queries.</p>
-              </div>
-
+            {/* Cinematic Fading Text */}
+            <div className={`min-h-[60px] flex flex-col items-center justify-center text-center px-4 transition-all duration-700 ${introStep === 2 ? 'mb-8' : 'mb-0'}`}>
+              <h1 className={`text-2xl md:text-3xl font-light tracking-wide leading-relaxed transition-all duration-700 ease-in-out whitespace-pre-wrap ${fadeState === 'in' ? 'opacity-100 transform translate-y-0' : 'opacity-0 transform translate-y-4'} text-zinc-100`}>
+                {introText}
+              </h1>
             </div>
+
+            {/* Dashboard Tool Cards (Fade in after sequence) */}
+            {introStep >= 2 && (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 w-full max-w-4xl animate-in fade-in slide-in-from-bottom-8 duration-1000 mt-4 card-3d-wrapper">
+                
+                <Card 
+                  className="card-3d bg-[#111113]/80 border-zinc-800/50 backdrop-blur-xl hover:border-indigo-500/50 hover:bg-zinc-900/80 cursor-pointer group" 
+                  onClick={() => {
+                    if (!isSignedIn) clerk.openSignIn();
+                    else setView("sql-optimizer");
+                  }}
+                >
+                  <CardHeader className="p-8">
+                    <div className="w-16 h-16 bg-indigo-500/10 rounded-xl flex items-center justify-center mb-6 group-hover:bg-indigo-500/20 group-hover:scale-110 transition-all duration-300 group-hover:shadow-[0_0_30px_rgba(99,102,241,0.3)]">
+                      <Code2 className="w-8 h-8 text-indigo-400 group-hover:animate-pulse" />
+                    </div>
+                    <CardTitle className="text-2xl text-zinc-100 font-bold tracking-wide group-hover:text-indigo-300 transition-colors">SQL Optimizer Studio</CardTitle>
+                    <CardDescription className="text-zinc-400 text-base leading-relaxed mt-4 group-hover:text-zinc-300 transition-colors">Paste raw SQL queries to automatically rewrite them for maximum performance and index utilization.</CardDescription>
+                  </CardHeader>
+                </Card>
+
+                <Card 
+                  className="card-3d bg-[#111113]/80 border-zinc-800/50 backdrop-blur-xl hover:border-violet-500/50 hover:bg-zinc-900/80 cursor-pointer group" 
+                  onClick={() => {
+                    if (!isSignedIn) clerk.openSignIn();
+                    else setView("db-analyzer");
+                  }}
+                >
+                  <CardHeader className="p-8">
+                    <div className="w-16 h-16 bg-violet-500/10 rounded-xl flex items-center justify-center mb-6 group-hover:bg-violet-500/20 group-hover:scale-110 transition-all duration-300 group-hover:shadow-[0_0_30px_rgba(139,92,246,0.3)]">
+                      <SearchCode className="w-8 h-8 text-violet-400 group-hover:animate-pulse" />
+                    </div>
+                    <CardTitle className="text-2xl text-zinc-100 font-bold tracking-wide group-hover:text-violet-300 transition-colors">Performance Analyzer</CardTitle>
+                    <CardDescription className="text-zinc-400 text-base leading-relaxed mt-4 group-hover:text-zinc-300 transition-colors">Connect to your database to automatically fetch slow-running queries and analyze bottlenecks.</CardDescription>
+                  </CardHeader>
+                </Card>
+
+              </div>
+            )}
           </div>
         )}
 
-        {/* --- LEVEL 2: QUERY SUB-OPTIONS --- */}
-        {view === "query-suboptions" && (
-          <div className="flex flex-col items-center justify-center flex-1 min-h-0 w-full animate-in zoom-in-95 fade-in duration-500 slide-in-from-right-8">
-            <div className="text-center mb-12 space-y-4">
-              <h2 className="text-3xl font-bold tracking-tight text-white">
-                <span className="gradient-text-primary">Query Intelligence</span> Modules
-              </h2>
-              <p className="text-zinc-400">Select the specific optimization tool.</p>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-8 w-full max-w-3xl">
-              <div className="premium-card p-8 cursor-pointer group flex flex-col h-48 justify-center" onClick={() => setView("sql-optimizer")}>
-                <div className="flex items-center gap-4 mb-3">
-                   <div className="p-3 rounded-xl bg-indigo-500/10 group-hover:bg-indigo-500/20 transition-colors">
-                     <Zap className="w-6 h-6 text-indigo-400" />
-                   </div>
-                   <h3 className="text-xl font-bold text-white">Single Query Optimizer</h3>
-                </div>
-                <p className="text-zinc-400 text-sm">Paste a raw SQL query to get instant performance fixes and index suggestions.</p>
-              </div>
-
-              <div className="premium-card p-8 cursor-pointer group flex flex-col h-48 justify-center" onClick={() => setView("schema-architect")}>
-                <div className="flex items-center gap-4 mb-3">
-                   <div className="p-3 rounded-xl bg-violet-500/10 group-hover:bg-violet-500/20 transition-colors">
-                     <Blocks className="w-6 h-6 text-violet-400" />
-                   </div>
-                   <h3 className="text-xl font-bold text-white">Schema Architect</h3>
-                </div>
-                <p className="text-zinc-400 text-sm">Upload your DDL schema to receive holistic normalization and architecture advice.</p>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* --- LEVEL 2: TELEMETRY SUB-OPTIONS --- */}
-        {view === "telemetry-suboptions" && (
-          <div className="flex flex-col items-center justify-center flex-1 min-h-0 w-full animate-in zoom-in-95 fade-in duration-500 slide-in-from-right-8">
-            <div className="text-center mb-12 space-y-4">
-              <h2 className="text-3xl font-bold tracking-tight text-white">
-                <span className="gradient-text-secondary">Telemetry</span> Modules
-              </h2>
-              <p className="text-zinc-400">Select the telemetry analysis tool.</p>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-8 w-full max-w-3xl">
-              <div className="premium-card p-8 cursor-pointer group flex flex-col h-48 justify-center" onClick={() => setView("db-analyzer-slow")}>
-                <div className="flex items-center gap-4 mb-3">
-                   <div className="p-3 rounded-xl bg-cyan-500/10 group-hover:bg-cyan-500/20 transition-colors">
-                     <SearchCode className="w-6 h-6 text-cyan-400" />
-                   </div>
-                   <h3 className="text-xl font-bold text-white">Live Slow Queries</h3>
-                </div>
-                <p className="text-zinc-400 text-sm">Connect to your database to automatically fetch and analyze slow-running queries.</p>
-              </div>
-
-              <div className="premium-card p-8 cursor-pointer group flex flex-col h-48 justify-center" onClick={() => setView("db-analyzer-active")}>
-                <div className="flex items-center gap-4 mb-3">
-                   <div className="p-3 rounded-xl bg-blue-500/10 group-hover:bg-blue-500/20 transition-colors">
-                     <Network className="w-6 h-6 text-blue-400" />
-                   </div>
-                   <h3 className="text-xl font-bold text-white">Active Connections</h3>
-                </div>
-                <p className="text-zinc-400 text-sm">Monitor active database connections, locks, and connection pool bottlenecks.</p>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* --- LEVEL 3: SQL OPTIMIZER --- */}
+        {/* --- VIEW: SQL OPTIMIZER --- */}
         {view === "sql-optimizer" && (
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 animate-in fade-in slide-in-from-right-8 duration-500 flex-1 min-h-0">
+            
             {/* Left Pane: Input */}
-            <div className="premium-card flex flex-col h-full min-h-0 border-white/5">
-               <div className="border-b border-white/5 p-5 shrink-0 bg-white/[0.02]">
-                 <h3 className="text-base font-semibold text-white flex items-center gap-2">
-                   Raw SQL Input
-                 </h3>
-               </div>
-               <div className="flex-1 flex flex-col min-h-0 p-5">
+            <Card className="bg-[#111113]/80 border-zinc-800/50 backdrop-blur-xl flex flex-col shadow-xl overflow-hidden h-full min-h-0">
+               <CardHeader className="border-b border-zinc-800/50 pb-4 bg-black/20 shrink-0">
+                 <CardTitle className="text-lg text-zinc-100 flex items-center gap-2">
+                   <Code2 className="w-5 h-5 text-indigo-400" /> Raw Query
+                 </CardTitle>
+               </CardHeader>
+               <CardContent className="p-0 flex-1 flex flex-col min-h-0">
                   <Textarea 
                      value={rawSql}
                      onChange={(e) => setRawSql(e.target.value)}
-                     placeholder="Enter your SQL query here..."
-                     className="flex-1 w-full h-full resize-none bg-black/40 border-0 focus-visible:ring-1 focus-visible:ring-fuchsia-500/50 text-zinc-300 text-sm p-4 rounded-xl"
+                     placeholder="Paste your slow SQL query here..."
+                     className="flex-1 w-full h-full resize-none bg-transparent border-0 focus-visible:ring-0 text-zinc-200 font-mono text-sm p-4 rounded-none"
                   />
-               </div>
-               <div className="p-5 border-t border-white/5 shrink-0 bg-white/[0.02]">
-                  <Button 
-                    onClick={() => handleOptimize(rawSql)} 
-                    disabled={isOptimizing || !rawSql.trim()}
-                    className="w-full bg-white text-black hover:bg-zinc-200 font-semibold rounded-xl h-12 transition-all hover:scale-[1.02] active:scale-[0.98]"
-                  >
-                    {isOptimizing ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Analyzing Query...</> : "Run Optimization"}
-                  </Button>
-               </div>
-            </div>
+                  <div className="p-4 border-t border-zinc-800/50 bg-black/20 shrink-0">
+                     <Button 
+                       onClick={() => handleOptimize(rawSql)} 
+                       disabled={isOptimizing || !rawSql.trim()}
+                       className="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-medium"
+                     >
+                       {isOptimizing ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Optimizing...</> : <><Zap className="w-4 h-4 mr-2" /> Run AI Optimization</>}
+                     </Button>
+                  </div>
+               </CardContent>
+            </Card>
 
             {/* Right Pane: Output */}
-            <div className="premium-card flex flex-col h-full min-h-0 border-white/5">
-               <div className="border-b border-white/5 p-5 shrink-0 bg-white/[0.02]">
-                 <h3 className="text-base font-semibold text-white flex items-center gap-2">
-                   AI Analysis
-                 </h3>
-               </div>
-               <div className="p-6 overflow-y-auto flex-1 min-h-0">
+            <Card className="bg-[#111113]/80 border-zinc-800/50 backdrop-blur-xl flex flex-col shadow-xl overflow-hidden h-full min-h-0">
+               <CardHeader className="border-b border-zinc-800/50 pb-4 bg-black/20 shrink-0">
+                 <CardTitle className="text-lg text-zinc-100 flex items-center gap-2">
+                   <Zap className="w-5 h-5 text-indigo-400" /> AI Optimization Plan
+                 </CardTitle>
+               </CardHeader>
+               <CardContent className="p-6 overflow-y-auto custom-scrollbar flex-1 min-h-0 bg-[#0a0a0c]/50">
                   {!optimizedOutput && !isOptimizing ? (
-                     <div className="h-full flex items-center justify-center text-zinc-600 text-sm">
-                       Run an optimization to see the results here.
+                     <div className="h-full flex items-center justify-center text-zinc-500 text-sm">
+                       Run optimization to see the results here.
                      </div>
                   ) : (
-                     <div className="prose prose-sm md:prose-base prose-invert max-w-none text-zinc-300 prose-p:leading-relaxed prose-pre:bg-[#0a0a0c] prose-pre:border prose-pre:border-white/10 prose-pre:rounded-xl">
+                     <div className="prose prose-sm md:prose-base dark:prose-invert max-w-none prose-p:leading-loose prose-pre:bg-[#050505] prose-pre:border prose-pre:border-zinc-800/80 prose-pre:rounded-xl font-light tracking-wide text-zinc-200">
                         <ReactMarkdown>{optimizedOutput}</ReactMarkdown>
                      </div>
                   )}
-               </div>
-            </div>
+               </CardContent>
+            </Card>
+
           </div>
         )}
 
-        {/* --- LEVEL 3: SCHEMA ARCHITECT (Coming Soon Placeholder) --- */}
-        {view === "schema-architect" && (
-          <div className="flex flex-col items-center justify-center flex-1 min-h-0 w-full animate-in fade-in duration-500">
-             <Blocks className="w-16 h-16 text-zinc-700 mb-4" />
-             <h2 className="text-2xl font-bold text-white mb-2">Schema Architect</h2>
-             <p className="text-zinc-500">This module is currently in development.</p>
-          </div>
-        )}
-
-        {/* --- LEVEL 3: ACTIVE CONNECTIONS (Coming Soon Placeholder) --- */}
-        {view === "db-analyzer-active" && (
-          <div className="flex flex-col items-center justify-center flex-1 min-h-0 w-full animate-in fade-in duration-500">
-             <Network className="w-16 h-16 text-zinc-700 mb-4" />
-             <h2 className="text-2xl font-bold text-white mb-2">Active Connections Analyzer</h2>
-             <p className="text-zinc-500">This module is currently in development.</p>
-          </div>
-        )}
-
-        {/* --- LEVEL 3: LIVE SLOW QUERIES --- */}
-        {view === "db-analyzer-slow" && (
-           <div className="animate-in fade-in slide-in-from-right-8 duration-500 flex-1 flex flex-col min-h-0 overflow-hidden w-full max-w-5xl mx-auto">
+        {/* --- VIEW: DB ANALYZER --- */}
+        {view === "db-analyzer" && (
+           <div className="animate-in fade-in slide-in-from-right-8 duration-500 flex-1 flex flex-col min-h-0 overflow-hidden">
+              
               {!isConnected ? (
-                 <div className="max-w-md mx-auto mt-20 premium-card p-10 w-full">
-                    <h3 className="text-2xl font-bold text-white mb-2">Connect Database</h3>
-                    <p className="text-sm text-zinc-400 mb-8">Enter your connection string to securely fetch telemetry.</p>
-                    
-                    <form onSubmit={mockConnectDb} className="space-y-6">
-                       <div className="space-y-3">
-                          <label className="text-sm font-medium text-zinc-300">Connection URI</label>
-                          <Input placeholder="postgresql://user:pass@host:5432/db" required className="bg-black/50 border-white/10 text-white focus-visible:ring-cyan-500/50 rounded-xl h-12" />
-                       </div>
-                       <Button type="submit" disabled={isConnecting} className="w-full bg-white text-black hover:bg-zinc-200 font-semibold rounded-xl h-12 transition-all hover:scale-[1.02] active:scale-[0.98]">
-                          {isConnecting ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Connecting...</> : "Initialize Connection"}
-                       </Button>
-                    </form>
-                 </div>
+                 <Card className="max-w-md mx-auto mt-12 bg-[#111113]/80 border-zinc-800/50 backdrop-blur-xl shadow-xl">
+                    <CardHeader>
+                       <CardTitle className="text-xl">Connect Database</CardTitle>
+                       <CardDescription>Enter credentials to fetch slow query logs securely.</CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                       <form onSubmit={mockConnectDb} className="space-y-4">
+                          <div className="space-y-2">
+                             <Label className="text-zinc-400">Database Connection URI</Label>
+                             <Input placeholder="postgresql://user:pass@host:5432/db" required className="bg-black/50 border-zinc-800 text-zinc-200 focus-visible:ring-indigo-500" />
+                          </div>
+                          <Button type="submit" disabled={isConnecting} className="w-full bg-violet-600 hover:bg-violet-500 text-white mt-4">
+                             {isConnecting ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Connecting...</> : "Connect securely"}
+                          </Button>
+                       </form>
+                    </CardContent>
+                 </Card>
               ) : (
-                 <div className="premium-card flex flex-col h-full min-h-0 w-full">
-                    <div className="border-b border-white/5 p-6 shrink-0 bg-white/[0.02] flex justify-between items-center">
-                       <div>
-                          <h3 className="text-lg font-bold text-white">Live Slow Queries</h3>
-                          <p className="text-sm text-zinc-400 mt-1">Fetched from pg_stat_statements</p>
+                 <Card className="bg-[#111113]/80 border-zinc-800/50 backdrop-blur-xl shadow-xl overflow-hidden flex flex-col h-full min-h-0">
+                    <CardHeader className="bg-black/20 border-b border-zinc-800/50 shrink-0">
+                       <CardTitle className="text-xl flex items-center gap-2">
+                          <Activity className="w-5 h-5 text-red-400" /> Top Slow Queries
+                       </CardTitle>
+                       <CardDescription>Automatically fetched from `pg_stat_statements`</CardDescription>
+                    </CardHeader>
+                    <CardContent className="p-0 flex-1 min-h-0 overflow-y-auto custom-scrollbar">
+                       <div className="w-full min-w-[600px]">
+                          <Table>
+                             <TableHeader className="bg-black/40">
+                                <TableRow className="hover:bg-transparent border-zinc-800/50">
+                                   <TableHead className="text-zinc-400">Raw Query</TableHead>
+                                   <TableHead className="w-[150px] text-zinc-400">Avg Duration</TableHead>
+                                   <TableHead className="w-[100px] text-zinc-400">Calls</TableHead>
+                                   <TableHead className="w-[120px] text-right text-zinc-400">Action</TableHead>
+                                </TableRow>
+                             </TableHeader>
+                             <TableBody>
+                                {MOCK_SLOW_QUERIES.map((q) => (
+                                   <TableRow key={q.id} className="border-zinc-800/50 hover:bg-zinc-800/30">
+                                      <TableCell className="font-mono text-xs text-zinc-300 max-w-md truncate py-4">{q.query}</TableCell>
+                                      <TableCell className="text-red-400 font-medium py-4">{q.duration}</TableCell>
+                                      <TableCell className="text-zinc-300 py-4">{q.calls}</TableCell>
+                                      <TableCell className="text-right py-4">
+                                         <Button size="sm" variant="outline" className="border-indigo-500/50 hover:bg-indigo-500/20 text-indigo-300 h-8 px-3" onClick={() => {
+                                            setRawSql(q.query);
+                                            setView("sql-optimizer");
+                                            setTimeout(() => handleOptimize(q.query), 300);
+                                         }}>
+                                            Optimize
+                                         </Button>
+                                      </TableCell>
+                                   </TableRow>
+                                ))}
+                             </TableBody>
+                          </Table>
                        </div>
-                       <div className="text-xs font-semibold text-cyan-400 px-3 py-1 bg-cyan-500/10 rounded-full flex items-center gap-2 border border-cyan-500/20">
-                          <div className="w-2 h-2 rounded-full bg-cyan-400 animate-pulse"></div> Live Connected
-                       </div>
-                    </div>
-                    <div className="p-0 flex-1 min-h-0 overflow-y-auto">
-                       <table className="w-full text-left border-collapse text-sm">
-                          <thead className="bg-black/40 sticky top-0 backdrop-blur-md z-10">
-                             <tr>
-                                <th className="p-5 border-b border-white/5 font-semibold text-zinc-300">Query String</th>
-                                <th className="p-5 border-b border-white/5 font-semibold text-zinc-300 w-32">Latency</th>
-                                <th className="p-5 border-b border-white/5 font-semibold text-zinc-300 w-24">Hits</th>
-                                <th className="p-5 border-b border-white/5 font-semibold text-zinc-300 text-right w-32">Action</th>
-                             </tr>
-                          </thead>
-                          <tbody>
-                             {MOCK_SLOW_QUERIES.map((q) => (
-                                <tr key={q.id} className="border-b border-white/5 hover:bg-white/[0.02] transition-colors">
-                                   <td className="p-5 font-mono text-xs text-zinc-400 truncate max-w-md">{q.query}</td>
-                                   <td className="p-5 font-semibold text-white">{q.duration}</td>
-                                   <td className="p-5 text-zinc-400">{q.calls}</td>
-                                   <td className="p-5 text-right">
-                                      <Button size="sm" variant="secondary" className="rounded-lg font-medium bg-white/10 hover:bg-white/20 text-white h-8" onClick={() => {
-                                         setRawSql(q.query);
-                                         setView("sql-optimizer");
-                                         setTimeout(() => handleOptimize(q.query), 300);
-                                      }}>
-                                         Analyze
-                                      </Button>
-                                   </td>
-                                </tr>
-                             ))}
-                          </tbody>
-                       </table>
-                    </div>
-                 </div>
+                    </CardContent>
+                 </Card>
               )}
            </div>
         )}
