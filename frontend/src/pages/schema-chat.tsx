@@ -145,7 +145,7 @@ export default function SchemaChatPage() {
   ];
 
   return (
-    <div className="h-full w-full bg-[#050505] relative overflow-y-auto font-sans text-zinc-50 pt-20 pb-10">
+    <div className="h-full w-full bg-[#050505] relative overflow-hidden flex flex-col font-sans text-zinc-50 pt-12 sm:pt-20 pb-4 sm:pb-8">
       
       {/* Subtle Background Elements */}
       <div className="fixed inset-0 z-0 pointer-events-none">
@@ -153,10 +153,10 @@ export default function SchemaChatPage() {
         <div className="absolute bottom-[-20%] right-[-10%] w-[50%] h-[50%] bg-violet-900/10 blur-[120px] rounded-full"></div>
       </div>
 
-      <div className="relative z-10 w-full max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div className="relative z-10 w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex-1 flex flex-col min-h-0">
         
         {/* Header */}
-        <div className="flex items-center justify-between mb-8">
+        <div className="flex items-center justify-between mb-8 shrink-0">
           <div className="flex items-center gap-3">
              {view !== "dashboard" && (
                 <Button variant="ghost" size="icon" onClick={() => setView("dashboard")} className="text-zinc-400 hover:text-white mr-2">
@@ -183,7 +183,7 @@ export default function SchemaChatPage() {
 
         {/* --- VIEW: DASHBOARD --- */}
         {view === "dashboard" && (
-          <div className="flex flex-col items-center justify-center min-h-[60vh]">
+          <div className="flex flex-col items-center justify-center flex-1 min-h-0">
             
             {/* Fluid Neural Core Orb (Background Element) */}
             <div className={`relative w-40 h-40 sm:w-56 sm:h-56 mb-12 flex items-center justify-center transition-all duration-1000 transform ${introStep >= 1 ? 'scale-100 opacity-100' : 'scale-75 opacity-0'}`}>
@@ -232,10 +232,10 @@ export default function SchemaChatPage() {
 
         {/* --- VIEW: SQL OPTIMIZER --- */}
         {view === "sql-optimizer" && (
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 animate-in fade-in slide-in-from-right-8 duration-500 min-h-[60vh] h-[70vh]">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 animate-in fade-in slide-in-from-right-8 duration-500 flex-1 min-h-0">
             
             {/* Left Pane: Input */}
-            <Card className="bg-[#111113]/80 border-zinc-800/50 backdrop-blur-xl flex flex-col shadow-xl overflow-hidden">
+            <Card className="bg-[#111113]/80 border-zinc-800/50 backdrop-blur-xl flex flex-col shadow-xl overflow-hidden h-full min-h-0">
                <CardHeader className="border-b border-zinc-800/50 pb-4 bg-black/20 shrink-0">
                  <CardTitle className="text-lg text-zinc-100 flex items-center gap-2">
                    <Code2 className="w-5 h-5 text-indigo-400" /> Raw Query
@@ -261,7 +261,7 @@ export default function SchemaChatPage() {
             </Card>
 
             {/* Right Pane: Output */}
-            <Card className="bg-[#111113]/80 border-zinc-800/50 backdrop-blur-xl flex flex-col shadow-xl overflow-hidden">
+            <Card className="bg-[#111113]/80 border-zinc-800/50 backdrop-blur-xl flex flex-col shadow-xl overflow-hidden h-full min-h-0">
                <CardHeader className="border-b border-zinc-800/50 pb-4 bg-black/20 shrink-0">
                  <CardTitle className="text-lg text-zinc-100 flex items-center gap-2">
                    <Zap className="w-5 h-5 text-indigo-400" /> AI Optimization Plan
@@ -285,7 +285,7 @@ export default function SchemaChatPage() {
 
         {/* --- VIEW: DB ANALYZER --- */}
         {view === "db-analyzer" && (
-           <div className="animate-in fade-in slide-in-from-right-8 duration-500">
+           <div className="animate-in fade-in slide-in-from-right-8 duration-500 flex-1 flex flex-col min-h-0 overflow-hidden">
               
               {!isConnected ? (
                  <Card className="max-w-md mx-auto mt-12 bg-[#111113]/80 border-zinc-800/50 backdrop-blur-xl shadow-xl">
@@ -306,15 +306,15 @@ export default function SchemaChatPage() {
                     </CardContent>
                  </Card>
               ) : (
-                 <Card className="bg-[#111113]/80 border-zinc-800/50 backdrop-blur-xl shadow-xl overflow-hidden">
-                    <CardHeader className="bg-black/20 border-b border-zinc-800/50">
+                 <Card className="bg-[#111113]/80 border-zinc-800/50 backdrop-blur-xl shadow-xl overflow-hidden flex flex-col h-full min-h-0">
+                    <CardHeader className="bg-black/20 border-b border-zinc-800/50 shrink-0">
                        <CardTitle className="text-xl flex items-center gap-2">
                           <Activity className="w-5 h-5 text-red-400" /> Top Slow Queries
                        </CardTitle>
                        <CardDescription>Automatically fetched from `pg_stat_statements`</CardDescription>
                     </CardHeader>
-                    <CardContent className="p-0">
-                       <div className="w-full overflow-x-auto">
+                    <CardContent className="p-0 flex-1 min-h-0 overflow-y-auto custom-scrollbar">
+                       <div className="w-full min-w-[600px]">
                           <Table>
                              <TableHeader className="bg-black/40">
                                 <TableRow className="hover:bg-transparent border-zinc-800/50">
