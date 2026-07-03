@@ -1,153 +1,39 @@
-import { useState, useRef, useEffect } from "react";
-import { Send, Mic, Activity, Network, Cpu } from "lucide-react";
+import { useState } from "react";
 import { useAuth, SignInButton } from "@clerk/react";
-import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { toast } from "sonner";
+import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
+import { Textarea } from "@/components/ui/textarea";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { ArrowLeft, Database, Code2, Zap, SearchCode, Loader2, Activity } from "lucide-react";
 import ReactMarkdown from "react-markdown";
-import { useAppStore } from "@/store/useAppStore";
+import { toast } from "sonner";
 
-type ChatMessage = {
-  role: "user" | "assistant";
-  content: string;
-  isAuthWarning?: boolean;
-};
+type ViewState = "dashboard" | "sql-optimizer" | "db-analyzer";
 
 export default function SchemaChatPage() {
-  const { chatMessages, setChatMessages, currentThreadId, setCurrentThreadId } = useAppStore();
-  const messages = chatMessages || [];
-  const setMessages = setChatMessages;
-  const [input, setInput] = useState("");
-  const [isLoading, setIsLoading] = useState(false);
-  const [isListening, setIsListening] = useState(false);
-  const [isFocused, setIsFocused] = useState(false);
-  
-  // Animation States for Cinematic Intro
-  const [introStep, setIntroStep] = useState(0); 
-  const [introText, setIntroText] = useState("");
-  const [fadeState, setFadeState] = useState<"in" | "out">("in");
-  const [randomHex, setRandomHex] = useState<string>("0x0000");
-  
-  const scrollRef = useRef<HTMLDivElement>(null);
   const { getToken, isSignedIn } = useAuth();
-  const clearChat = useAppStore((state) => state.clearChat);
+  const [view, setView] = useState<ViewState>("dashboard");
+  
+  // SQL Optimizer State
+  const [rawSql, setRawSql] = useState("");
+  const [optimizedOutput, setOptimizedOutput] = useState("");
+  const [isOptimizing, setIsOptimizing] = useState(false);
 
-  // Cinematic Intro Sequence (Fluid Fade In/Out)
-  useEffect(() => {
-    clearChat(); // Always wipe on fresh load
-    setIntroStep(1);
-
-    const sequence = async () => {
-      // Small pause on mount
-      await new Promise(r => setTimeout(r, 500));
-      
-      // Step 1: "Hello."
-      setIntroText("Hello.");
-      setFadeState("in");
-      await new Promise(r => setTimeout(r, 1800));
-      
-      setFadeState("out");
-      await new Promise(r => setTimeout(r, 800));
-      
-      // Step 2: Main Intro (Skip if already signed in)
-      if (!isSignedIn) {
-        setIntroStep(2);
-        setIntroText("I am QuerySage.\nYour database intelligence.");
-        setFadeState("in");
-        await new Promise(r => setTimeout(r, 2500));
-
-        setFadeState("out");
-        await new Promise(r => setTimeout(r, 800));
-      }
-
-      // Step 3: Awaiting
-      setIntroStep(3);
-      if (isSignedIn) {
-        setIntroText("How may I assist you today?");
-      } else {
-        setIntroText("Authentication required to access the core.");
-      }
-      setFadeState("in");
-      
-      await new Promise(r => setTimeout(r, 800));
-      setIntroStep(4); // Input box appears
-    };
-
-    sequence();
-
-    // Random hex generator for minimal background HUD
-    const hexInterval = setInterval(() => {
-      setRandomHex("0x" + Math.floor(Math.random()*16777215).toString(16).toUpperCase().padStart(6, '0'));
-    }, 100);
-
-    return () => clearInterval(hexInterval);
-  }, [isSignedIn]);
-
-  // Auto-scroll
-  useEffect(() => {
-    if (scrollRef.current) {
-      const scrollElement = scrollRef.current;
-      setTimeout(() => {
-        scrollElement.scrollTop = scrollElement.scrollHeight;
-      }, 100);
-    }
-  }, [messages, isListening, introStep]);
-
-  const toggleListening = () => {
-    if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
-      toast.error("Voice recognition is not supported in this browser.");
-      return;
-    }
-
-    if (isListening) {
-      setIsListening(false);
-      return;
-    }
-
-    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-    const recognition = new SpeechRecognition();
-    
-    recognition.continuous = false;
-    recognition.interimResults = false;
-    recognition.lang = 'en-US';
-
-    recognition.onstart = () => setIsListening(true);
-    
-    recognition.onresult = (event: any) => {
-      const transcript = event.results[0][0].transcript;
-      setInput(transcript);
-      setIsListening(false);
-      setTimeout(() => {
-         document.getElementById("jarvis-send-btn")?.click();
-      }, 500);
-    };
-
-    recognition.onerror = () => setIsListening(false);
-    recognition.onend = () => setIsListening(false);
-    recognition.start();
-  };
-
-  const handleSend = async () => {
-    if (!input.trim()) return;
-    const userMessage = input.trim();
-    setInput("");
-    
+  // DB Analyzer State
+  const [isConnected, setIsConnected] = useState(false);
+  const [isConnecting, setIsConnecting] = useState(false);
+  
+  const handleOptimize = async (sqlToOptimize: string) => {
     if (!isSignedIn) {
-      setMessages((prev: ChatMessage[]) => [
-        ...(prev || []), 
-        { role: "user", content: userMessage },
-        { 
-          role: "assistant", 
-          content: "Authentication required to interact with the database core. Please sign in.",
-          isAuthWarning: true 
-        }
-      ]);
+      toast.error("Please sign in to run optimizations.");
       return;
     }
-
-    setMessages((prev: ChatMessage[]) => [...(prev || []), { role: "user", content: userMessage }]);
-    setIsLoading(true);
-    let assistantMessageAdded = false;
+    if (!sqlToOptimize.trim()) return;
+    
+    setIsOptimizing(true);
+    setOptimizedOutput("");
 
     try {
       const token = await getToken();
@@ -158,17 +44,13 @@ export default function SchemaChatPage() {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
         body: JSON.stringify({
-          message: userMessage,
-          chat_history: messages,
-          thread_id: currentThreadId || undefined,
+          message: `Please optimize the following SQL query. Return the optimized code block and a brief explanation of the performance improvements (e.g. index utilization, joins):\n\n\`\`\`sql\n${sqlToOptimize}\n\`\`\``,
+          chat_history: [],
           timezone_offset: new Date().getTimezoneOffset(),
         }),
       });
 
       if (!response.ok) throw new Error("Backend connection failed.");
-
-      setMessages((prev: ChatMessage[]) => [...(prev || []), { role: "assistant", content: "" }]);
-      assistantMessageAdded = true;
 
       const reader = response.body?.getReader();
       const decoder = new TextDecoder();
@@ -192,32 +74,15 @@ export default function SchemaChatPage() {
             if (currentEvent === "error") {
               try {
                 const errorMsg = JSON.parse(dataStr);
-                toast.error(errorMsg);
-                setMessages((prev: ChatMessage[]) => {
-                  const newMsgs = [...(prev || [])];
-                  if (newMsgs[newMsgs.length - 1]?.role === "assistant" && !newMsgs[newMsgs.length - 1].content) {
-                     newMsgs[newMsgs.length - 1].content = `⚠️ **Error:** ${errorMsg}`;
-                     newMsgs[newMsgs.length - 1].isAuthWarning = true;
-                  }
-                  return newMsgs;
-                });
+                setOptimizedOutput(prev => prev + `\n\n⚠️ **Error:** ${errorMsg}`);
               } catch (e) {}
               continue;
             }
 
             try {
               const data = JSON.parse(dataStr);
-              if (data.thread_id && !currentThreadId) {
-                setCurrentThreadId(data.thread_id);
-              } else if (typeof data === "string" && currentEvent !== "error") {
-                setMessages((prev: ChatMessage[]) => {
-                  const newMsgs = [...(prev || [])];
-                  const last = newMsgs[newMsgs.length - 1];
-                  if (last && last.role === "assistant") {
-                    last.content += data;
-                  }
-                  return newMsgs;
-                });
+              if (typeof data === "string" && currentEvent !== "error") {
+                setOptimizedOutput(prev => prev + data);
               }
             } catch (e) {}
           }
@@ -225,204 +90,217 @@ export default function SchemaChatPage() {
       }
     } catch (err) {
       console.error(err);
-      toast.error("Failed to connect to Python Backend.");
-      if (assistantMessageAdded) {
-         setMessages((prev: ChatMessage[]) => {
-            const newMsgs = [...(prev || [])];
-            newMsgs[newMsgs.length - 1].content = "⚠️ **Backend Connection Failed:**\n\nCould not connect to the Python backend. Ensure that your backend is running and `VITE_API_URL` is set correctly.";
-            newMsgs[newMsgs.length - 1].isAuthWarning = true;
-            return newMsgs;
-         });
-      } else {
-         setMessages((prev: ChatMessage[]) => [
-            ...(prev || []), 
-            { 
-               role: "assistant", 
-               content: "⚠️ **Backend Connection Failed:**\n\nCould not connect to the Python backend. Ensure that your backend is running locally or deployed, and `VITE_API_URL` is configured.", 
-               isAuthWarning: true 
-            }
-         ]);
-      }
+      setOptimizedOutput("⚠️ **Backend Connection Failed:**\n\nCould not connect to the Python backend. Ensure that your backend is running locally or deployed, and `VITE_API_URL` is configured.");
     } finally {
-      setIsLoading(false);
+      setIsOptimizing(false);
     }
   };
 
+  const mockConnectDb = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!isSignedIn) {
+      toast.error("Please authenticate first.");
+      return;
+    }
+    setIsConnecting(true);
+    await new Promise(r => setTimeout(r, 1500));
+    setIsConnecting(false);
+    setIsConnected(true);
+    toast.success("Connected to database securely!");
+  };
+
+  const MOCK_SLOW_QUERIES = [
+    { id: 1, query: "SELECT * FROM users u LEFT JOIN orders o ON u.id = o.user_id WHERE u.created_at < '2024-01-01'", duration: "1250ms", calls: 45 },
+    { id: 2, query: "SELECT count(*) FROM audit_logs WHERE action = 'LOGIN' GROUP BY user_id", duration: "840ms", calls: 120 },
+    { id: 3, query: "SELECT u.name, p.title FROM users u JOIN posts p ON u.id = p.author_id ORDER BY p.created_at DESC", duration: "610ms", calls: 350 },
+  ];
+
   return (
-    <div className="h-full flex w-full bg-[#050505] relative overflow-hidden font-sans text-zinc-50">
+    <div className="h-full w-full bg-[#050505] relative overflow-y-auto font-sans text-zinc-50 pt-20 pb-10">
       
       {/* Subtle Background Elements */}
-      <div className="absolute inset-0 z-0 pointer-events-none">
+      <div className="fixed inset-0 z-0 pointer-events-none">
         <div className="absolute top-[-20%] left-[-10%] w-[50%] h-[50%] bg-indigo-900/10 blur-[120px] rounded-full"></div>
         <div className="absolute bottom-[-20%] right-[-10%] w-[50%] h-[50%] bg-violet-900/10 blur-[120px] rounded-full"></div>
       </div>
 
-      {/* Main Content Area */}
-      <div className="flex-1 flex flex-col min-h-0 relative z-10 w-full pt-16">
+      <div className="relative z-10 w-full max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
         
-        <div className="flex-1 w-full px-4 md:px-8 max-w-5xl mx-auto overflow-y-auto custom-scrollbar" ref={scrollRef}>
-            {messages.length === 0 ? (
-              
-              /* Cinematic AI Core Empty State */
-              <div className="h-full min-h-[75vh] flex flex-col items-center justify-center">
-                
-                {/* Fluid Neural Core Orb */}
-                <div className={`relative w-48 h-48 sm:w-64 sm:h-64 mb-16 flex items-center justify-center transition-all duration-1000 transform ${introStep >= 1 ? 'scale-100 opacity-100' : 'scale-75 opacity-0'}`}>
-                  
-                  {/* Base Glow */}
-                  <div className={`absolute inset-0 rounded-full blur-2xl opacity-60 transition-colors duration-1000 ${
-                    !isSignedIn ? 'bg-red-500' : isListening ? 'bg-amber-400' : 'bg-indigo-500'
-                  }`}></div>
-
-                  {/* Orb 1: Violet/Pink */}
-                  <div className={`absolute w-[120%] h-[120%] -top-[10%] -left-[10%] rounded-full mix-blend-screen filter blur-[24px] animate-blob transition-colors duration-1000 ${
-                    !isSignedIn ? 'bg-rose-500/80' : isListening ? 'bg-yellow-400/80' : 'bg-violet-500/80'
-                  }`}></div>
-                  
-                  {/* Orb 2: Cyan/Blue */}
-                  <div className={`absolute w-[110%] h-[110%] top-[0%] right-[0%] rounded-full mix-blend-screen filter blur-[20px] animate-blob animation-delay-2000 transition-colors duration-1000 ${
-                    !isSignedIn ? 'bg-orange-500/80' : isListening ? 'bg-orange-400/80' : 'bg-cyan-400/80'
-                  }`}></div>
-                  
-                  {/* Orb 3: Fuchsia/Purple */}
-                  <div className={`absolute w-[100%] h-[100%] -bottom-[10%] left-[10%] rounded-full mix-blend-screen filter blur-[20px] animate-blob animation-delay-4000 transition-colors duration-1000 ${
-                    !isSignedIn ? 'bg-red-600/80' : isListening ? 'bg-amber-500/80' : 'bg-fuchsia-500/80'
-                  }`}></div>
-
-                  {/* Core Surface for depth */}
-                  <div className="absolute inset-2 rounded-full border border-white/5 backdrop-blur-[2px] shadow-[inset_0_0_30px_rgba(255,255,255,0.05)]"></div>
-                  
-                  {/* Pulse Effect when listening */}
-                  {isListening && (
-                    <div className="absolute inset-[-10%] rounded-full border border-amber-400/40 animate-ping" style={{ animationDuration: '2s' }}></div>
-                  )}
-                </div>
-                
-                {/* Cinematic Fading Text */}
-                <div className="min-h-[100px] flex flex-col items-center justify-center text-center px-4">
-                  <h1 className={`text-3xl md:text-4xl lg:text-5xl font-light tracking-wide leading-relaxed max-w-3xl mx-auto transition-all duration-700 ease-in-out whitespace-pre-wrap ${fadeState === 'in' ? 'opacity-100 transform translate-y-0' : 'opacity-0 transform translate-y-4'} ${!isSignedIn ? 'text-red-100' : 'text-zinc-50'}`}>
-                    {introText}
-                  </h1>
-                </div>
-
-                {/* Login Button (Fades in if unauthenticated and text is done) */}
-                {!isSignedIn && introStep >= 4 && (
-                   <div className="mt-12 animate-in fade-in slide-in-from-bottom-4 duration-1000">
-                     <SignInButton mode="modal" forceRedirectUrl="/">
-                        <Button className="bg-white hover:bg-zinc-200 text-black shadow-[0_0_20px_rgba(255,255,255,0.2)] rounded-full px-10 py-6 text-sm font-medium transition-all">
-                          Authenticate to Continue
-                        </Button>
-                     </SignInButton>
-                   </div>
-                )}
-              </div>
-              
-            ) : (
-              
-              /* Output Panels (No Chatbot Bubbles) */
-              <div className="space-y-12 py-8 w-full max-w-4xl mx-auto mb-32">
-                {messages.map((msg: ChatMessage, idx: number) => (
-                  <div key={idx} className={`w-full flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
-                    
-                    {msg.role === "user" ? (
-                      /* User Input: Minimalist text */
-                      <div className="max-w-[75%] border-r-2 border-indigo-500/50 pr-6 text-right">
-                         <div className="text-[10px] text-zinc-500 font-medium tracking-widest mb-2 uppercase">Your Query</div>
-                         <div className="text-xl md:text-2xl font-light text-zinc-100 whitespace-pre-wrap tracking-wide leading-relaxed">
-                           {msg.content}
-                         </div>
-                      </div>
-                    ) : (
-                      /* AI Output: Structured software panel */
-                      <div className={`w-full max-w-[95%] border-l-2 pl-6 bg-gradient-to-r py-5 rounded-r-3xl shadow-sm ${msg.isAuthWarning ? 'border-red-500/50 from-red-950/20 to-transparent' : 'border-indigo-500/40 from-indigo-950/10 to-transparent'}`}>
-                         <div className="text-[10px] text-zinc-500 font-medium tracking-widest mb-3 uppercase flex items-center gap-2">
-                           <div className={`w-2 h-2 rounded-full animate-pulse ${msg.isAuthWarning ? 'bg-red-500' : 'bg-indigo-400'}`}></div>
-                           QuerySage Output
-                         </div>
-                         <div className={`prose prose-base md:prose-lg dark:prose-invert max-w-none prose-p:leading-loose prose-pre:bg-[#0a0a0c] prose-pre:border prose-pre:border-zinc-800/80 prose-pre:rounded-xl font-light tracking-wide ${msg.isAuthWarning ? 'text-red-200' : 'text-zinc-200'}`}>
-                           <ReactMarkdown>{msg.content}</ReactMarkdown>
-                           {msg.isAuthWarning && (
-                              <div className="mt-8">
-                                <SignInButton mode="modal" forceRedirectUrl="/">
-                                   <Button className="bg-red-950/40 border border-red-500/40 hover:bg-red-900/60 text-red-200 text-sm rounded-lg px-6 transition-all">
-                                     Authenticate
-                                   </Button>
-                                </SignInButton>
-                              </div>
-                           )}
-                         </div>
-                      </div>
-                    )}
-
-                  </div>
-                ))}
-                
-                {isLoading && messages[messages.length - 1]?.role === "user" && (
-                  <div className="w-full flex justify-start animate-in fade-in duration-300">
-                    <div className="border-l-2 border-indigo-500/40 pl-6 py-2 bg-gradient-to-r from-indigo-950/10 to-transparent rounded-r-3xl w-64">
-                      <div className="text-zinc-400 font-mono text-xs tracking-widest flex items-center gap-3">
-                        <div className="w-3 h-3 border-2 border-indigo-400 border-t-transparent rounded-full animate-spin"></div>
-                        PROCESSING...
-                      </div>
-                    </div>
-                  </div>
-                )}
-              </div>
-            )}
+        {/* Header */}
+        <div className="flex items-center justify-between mb-8">
+          <div className="flex items-center gap-3">
+             {view !== "dashboard" && (
+                <Button variant="ghost" size="icon" onClick={() => setView("dashboard")} className="text-zinc-400 hover:text-white mr-2">
+                  <ArrowLeft className="w-5 h-5" />
+                </Button>
+             )}
+             <div>
+                <h1 className="text-3xl font-bold tracking-tight text-white flex items-center gap-2">
+                   <Database className="w-6 h-6 text-indigo-400" />
+                   QuerySage
+                </h1>
+                <p className="text-sm text-zinc-400 mt-1">Enterprise Database Intelligence Toolkit</p>
+             </div>
+          </div>
+          
+          {!isSignedIn && (
+             <SignInButton mode="modal" forceRedirectUrl="/">
+                <Button className="bg-white hover:bg-zinc-200 text-black font-medium px-6 py-2 h-10 rounded-lg">
+                  Authenticate
+                </Button>
+             </SignInButton>
+          )}
         </div>
-        
-        {/* Glassmorphic Input Console (Always active when ready) */}
-        {(messages.length > 0 || introStep >= 4) && (
-          <div className="w-full max-w-3xl mx-auto px-4 md:px-8 pb-8 pt-4 shrink-0 z-20 animate-in fade-in slide-in-from-bottom-8 duration-1000">
-              <form onSubmit={(e) => { e.preventDefault(); handleSend(); }} className="relative w-full group flex items-center">
-                
-                {/* Ambient glow behind input */}
-                <div className={`absolute -inset-1 rounded-full blur-xl opacity-20 transition duration-500 ${!isSignedIn ? 'bg-red-500' : isListening ? 'bg-amber-400' : 'bg-indigo-500'}`}></div>
-                
-                <div className={`relative flex items-center w-full bg-[#111113]/80 backdrop-blur-2xl border rounded-full overflow-hidden transition-all duration-300 shadow-2xl ${
-                  isFocused ? (!isSignedIn ? 'border-red-500/50' : 'border-indigo-500/50 shadow-[0_0_0_1px_rgba(99,102,241,0.2)]') 
-                            : (!isSignedIn ? 'border-red-500/20' : 'border-white/10')
-                }`}>
-                  
-                  {/* Voice Input Button */}
-                  <div className="flex items-center justify-center pl-2">
-                     <Button
-                       type="button"
-                       onClick={toggleListening}
-                       variant="ghost"
-                       size="icon"
-                       className={`rounded-full h-12 w-12 transition-all ${isListening ? 'text-amber-400 bg-amber-400/10 animate-pulse' : 'text-zinc-500 hover:text-zinc-300'}`}
-                     >
-                       <Mic className="w-5 h-5" />
-                     </Button>
-                  </div>
 
-                  <Input
-                    placeholder={isListening ? "Listening..." : "Query your database..."}
-                    value={input}
-                    onChange={(e) => setInput(e.target.value)}
-                    onFocus={() => setIsFocused(true)}
-                    onBlur={() => setIsFocused(false)}
-                    disabled={isLoading}
-                    className="relative w-full h-14 border-none bg-transparent focus-visible:ring-0 text-[16px] text-zinc-100 placeholder:text-zinc-600 font-medium px-2"
-                  />
-
-                  {/* Send Button */}
-                  <div className="flex items-center justify-center pr-2">
-                    <Button 
-                      id="jarvis-send-btn"
-                      type="submit" 
-                      disabled={!input.trim() || isLoading}
-                      size="icon"
-                      className={`rounded-full h-10 w-10 transition-all disabled:opacity-20 flex items-center justify-center ${!isSignedIn ? 'bg-red-500 hover:bg-red-400 text-white' : isListening ? 'bg-amber-400 hover:bg-amber-300 text-black' : 'bg-white hover:bg-zinc-200 text-black'}`}
-                    >
-                      <Send className="w-4 h-4 ml-0.5" />
-                    </Button>
-                  </div>
+        {/* --- VIEW: DASHBOARD --- */}
+        {view === "dashboard" && (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-12 animate-in fade-in slide-in-from-bottom-4 duration-700">
+            
+            {/* Tool 1 */}
+            <Card className="bg-[#111113]/80 border-zinc-800/50 backdrop-blur-xl hover:border-indigo-500/50 transition-all cursor-pointer group shadow-xl" onClick={() => setView("sql-optimizer")}>
+              <CardHeader>
+                <div className="w-12 h-12 bg-indigo-500/10 rounded-lg flex items-center justify-center mb-4 group-hover:bg-indigo-500/20 transition-colors">
+                  <Code2 className="w-6 h-6 text-indigo-400" />
                 </div>
-              </form>
+                <CardTitle className="text-xl text-zinc-100">SQL Optimizer Studio</CardTitle>
+                <CardDescription className="text-zinc-400 text-base">Paste raw SQL queries to automatically rewrite them for maximum performance and index utilization.</CardDescription>
+              </CardHeader>
+            </Card>
+
+            {/* Tool 2 */}
+            <Card className="bg-[#111113]/80 border-zinc-800/50 backdrop-blur-xl hover:border-violet-500/50 transition-all cursor-pointer group shadow-xl" onClick={() => setView("db-analyzer")}>
+              <CardHeader>
+                <div className="w-12 h-12 bg-violet-500/10 rounded-lg flex items-center justify-center mb-4 group-hover:bg-violet-500/20 transition-colors">
+                  <SearchCode className="w-6 h-6 text-violet-400" />
+                </div>
+                <CardTitle className="text-xl text-zinc-100">Performance Analyzer</CardTitle>
+                <CardDescription className="text-zinc-400 text-base">Connect to your database to automatically fetch slow-running queries and analyze bottlenecks.</CardDescription>
+              </CardHeader>
+            </Card>
+
           </div>
         )}
+
+        {/* --- VIEW: SQL OPTIMIZER --- */}
+        {view === "sql-optimizer" && (
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 animate-in fade-in slide-in-from-right-8 duration-500 min-h-[60vh] h-[70vh]">
+            
+            {/* Left Pane: Input */}
+            <Card className="bg-[#111113]/80 border-zinc-800/50 backdrop-blur-xl flex flex-col shadow-xl overflow-hidden">
+               <CardHeader className="border-b border-zinc-800/50 pb-4 bg-black/20 shrink-0">
+                 <CardTitle className="text-lg text-zinc-100 flex items-center gap-2">
+                   <Code2 className="w-5 h-5 text-indigo-400" /> Raw Query
+                 </CardTitle>
+               </CardHeader>
+               <CardContent className="p-0 flex-1 flex flex-col min-h-0">
+                  <Textarea 
+                     value={rawSql}
+                     onChange={(e) => setRawSql(e.target.value)}
+                     placeholder="Paste your slow SQL query here..."
+                     className="flex-1 w-full h-full resize-none bg-transparent border-0 focus-visible:ring-0 text-zinc-200 font-mono text-sm p-4 rounded-none"
+                  />
+                  <div className="p-4 border-t border-zinc-800/50 bg-black/20 shrink-0">
+                     <Button 
+                       onClick={() => handleOptimize(rawSql)} 
+                       disabled={isOptimizing || !rawSql.trim()}
+                       className="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-medium"
+                     >
+                       {isOptimizing ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Optimizing...</> : <><Zap className="w-4 h-4 mr-2" /> Run AI Optimization</>}
+                     </Button>
+                  </div>
+               </CardContent>
+            </Card>
+
+            {/* Right Pane: Output */}
+            <Card className="bg-[#111113]/80 border-zinc-800/50 backdrop-blur-xl flex flex-col shadow-xl overflow-hidden">
+               <CardHeader className="border-b border-zinc-800/50 pb-4 bg-black/20 shrink-0">
+                 <CardTitle className="text-lg text-zinc-100 flex items-center gap-2">
+                   <Zap className="w-5 h-5 text-indigo-400" /> AI Optimization Plan
+                 </CardTitle>
+               </CardHeader>
+               <CardContent className="p-6 overflow-y-auto custom-scrollbar flex-1 min-h-0 bg-[#0a0a0c]/50">
+                  {!optimizedOutput && !isOptimizing ? (
+                     <div className="h-full flex items-center justify-center text-zinc-500 text-sm">
+                       Run optimization to see the results here.
+                     </div>
+                  ) : (
+                     <div className="prose prose-sm md:prose-base dark:prose-invert max-w-none prose-p:leading-loose prose-pre:bg-[#050505] prose-pre:border prose-pre:border-zinc-800/80 prose-pre:rounded-xl font-light tracking-wide text-zinc-200">
+                        <ReactMarkdown>{optimizedOutput}</ReactMarkdown>
+                     </div>
+                  )}
+               </CardContent>
+            </Card>
+
+          </div>
+        )}
+
+        {/* --- VIEW: DB ANALYZER --- */}
+        {view === "db-analyzer" && (
+           <div className="animate-in fade-in slide-in-from-right-8 duration-500">
+              
+              {!isConnected ? (
+                 <Card className="max-w-md mx-auto mt-12 bg-[#111113]/80 border-zinc-800/50 backdrop-blur-xl shadow-xl">
+                    <CardHeader>
+                       <CardTitle className="text-xl">Connect Database</CardTitle>
+                       <CardDescription>Enter credentials to fetch slow query logs securely.</CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                       <form onSubmit={mockConnectDb} className="space-y-4">
+                          <div className="space-y-2">
+                             <Label className="text-zinc-400">Database Connection URI</Label>
+                             <Input placeholder="postgresql://user:pass@host:5432/db" required className="bg-black/50 border-zinc-800 text-zinc-200 focus-visible:ring-indigo-500" />
+                          </div>
+                          <Button type="submit" disabled={isConnecting} className="w-full bg-violet-600 hover:bg-violet-500 text-white mt-4">
+                             {isConnecting ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Connecting...</> : "Connect securely"}
+                          </Button>
+                       </form>
+                    </CardContent>
+                 </Card>
+              ) : (
+                 <Card className="bg-[#111113]/80 border-zinc-800/50 backdrop-blur-xl shadow-xl overflow-hidden">
+                    <CardHeader className="bg-black/20 border-b border-zinc-800/50">
+                       <CardTitle className="text-xl flex items-center gap-2">
+                          <Activity className="w-5 h-5 text-red-400" /> Top Slow Queries
+                       </CardTitle>
+                       <CardDescription>Automatically fetched from `pg_stat_statements`</CardDescription>
+                    </CardHeader>
+                    <CardContent className="p-0">
+                       <div className="w-full overflow-x-auto">
+                          <Table>
+                             <TableHeader className="bg-black/40">
+                                <TableRow className="hover:bg-transparent border-zinc-800/50">
+                                   <TableHead className="text-zinc-400">Raw Query</TableHead>
+                                   <TableHead className="w-[150px] text-zinc-400">Avg Duration</TableHead>
+                                   <TableHead className="w-[100px] text-zinc-400">Calls</TableHead>
+                                   <TableHead className="w-[120px] text-right text-zinc-400">Action</TableHead>
+                                </TableRow>
+                             </TableHeader>
+                             <TableBody>
+                                {MOCK_SLOW_QUERIES.map((q) => (
+                                   <TableRow key={q.id} className="border-zinc-800/50 hover:bg-zinc-800/30">
+                                      <TableCell className="font-mono text-xs text-zinc-300 max-w-md truncate py-4">{q.query}</TableCell>
+                                      <TableCell className="text-red-400 font-medium py-4">{q.duration}</TableCell>
+                                      <TableCell className="text-zinc-300 py-4">{q.calls}</TableCell>
+                                      <TableCell className="text-right py-4">
+                                         <Button size="sm" variant="outline" className="border-indigo-500/50 hover:bg-indigo-500/20 text-indigo-300 h-8 px-3" onClick={() => {
+                                            setRawSql(q.query);
+                                            setView("sql-optimizer");
+                                            setTimeout(() => handleOptimize(q.query), 300);
+                                         }}>
+                                            Optimize
+                                         </Button>
+                                      </TableCell>
+                                   </TableRow>
+                                ))}
+                             </TableBody>
+                          </Table>
+                       </div>
+                    </CardContent>
+                 </Card>
+              )}
+           </div>
+        )}
+
       </div>
     </div>
   );
