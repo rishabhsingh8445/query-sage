@@ -3,20 +3,24 @@ import { useAuth, SignInButton, useClerk } from "@clerk/react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
-import { ArrowLeft, Database, Code2, Zap, SearchCode, Loader2, Activity } from "lucide-react";
+import { ArrowLeft, Database, Code2, Zap, SearchCode, Loader2, Activity, Network, Blocks } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import { toast } from "sonner";
 
-type ViewState = "dashboard" | "sql-optimizer" | "db-analyzer";
+type ViewState = 
+  | "dashboard" 
+  | "query-suboptions" 
+  | "telemetry-suboptions" 
+  | "sql-optimizer" 
+  | "schema-architect" 
+  | "db-analyzer-slow" 
+  | "db-analyzer-active";
 
 export default function SchemaChatPage() {
   const { getToken, isSignedIn } = useAuth();
   const clerk = useClerk();
   const [view, setView] = useState<ViewState>("dashboard");
-  
-  // Cinematic Boot State
-  const [bootStep, setBootStep] = useState(0); 
-  const [typingText, setTypingText] = useState("");
+  const [isLoaded, setIsLoaded] = useState(false);
 
   // SQL Optimizer State
   const [rawSql, setRawSql] = useState("");
@@ -26,33 +30,16 @@ export default function SchemaChatPage() {
   // DB Analyzer State
   const [isConnected, setIsConnected] = useState(false);
   const [isConnecting, setIsConnecting] = useState(false);
-  
-  useEffect(() => {
-    if (view !== "dashboard") return;
-    setBootStep(1);
-    
-    const typeOut = async (text: string, delay = 50) => {
-      setTypingText("");
-      for (let i = 0; i <= text.length; i++) {
-        setTypingText(text.slice(0, i));
-        await new Promise(r => setTimeout(r, delay));
-      }
-    };
 
-    const sequence = async () => {
-      await new Promise(r => setTimeout(r, 800));
-      await typeOut("[ SYSTEM INITIATED ]");
-      await new Promise(r => setTimeout(r, 800));
-      await typeOut("I am QuerySage. Awaiting command module selection...");
-      await new Promise(r => setTimeout(r, 1000));
-      setBootStep(2); // Show modules
-    };
-    sequence();
-  }, [view]);
+  useEffect(() => {
+    // Initial fade in for the "Wow" entrance
+    const timer = setTimeout(() => setIsLoaded(true), 100);
+    return () => clearTimeout(timer);
+  }, []);
 
   const handleOptimize = async (sqlToOptimize: string) => {
     if (!isSignedIn) {
-      toast.error("AUTH REQUIRED. MODULE LOCKED.");
+      toast.error("Please authenticate first.");
       return;
     }
     if (!sqlToOptimize.trim()) return;
@@ -99,7 +86,7 @@ export default function SchemaChatPage() {
             if (currentEvent === "error") {
               try {
                 const errorMsg = JSON.parse(dataStr);
-                setOptimizedOutput(prev => prev + `\n\n[ CRITICAL ERROR: ${errorMsg} ]`);
+                setOptimizedOutput(prev => prev + `\n\n[ Error: ${errorMsg} ]`);
               } catch (e) {}
               continue;
             }
@@ -115,7 +102,7 @@ export default function SchemaChatPage() {
       }
     } catch (err) {
       console.error(err);
-      setOptimizedOutput("[ TELEMETRY LOST. RECONNECT TO MAINFRAME. ]");
+      setOptimizedOutput("Analysis failed. Please try again.");
     } finally {
       setIsOptimizing(false);
     }
@@ -124,14 +111,14 @@ export default function SchemaChatPage() {
   const mockConnectDb = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!isSignedIn) {
-      toast.error("AUTH REQUIRED. LINK TERMINATED.");
+      toast.error("Please authenticate first.");
       return;
     }
     setIsConnecting(true);
     await new Promise(r => setTimeout(r, 1500));
     setIsConnecting(false);
     setIsConnected(true);
-    toast.success("MAINFRAME LINK ESTABLISHED.");
+    toast.success("Database connected successfully.");
   };
 
   const MOCK_SLOW_QUERIES = [
@@ -140,206 +127,277 @@ export default function SchemaChatPage() {
     { id: 3, query: "SELECT u.name, p.title FROM users u JOIN posts p ON u.id = p.author_id ORDER BY p.created_at DESC", duration: "610ms", calls: 350 },
   ];
 
+  const goBack = () => {
+    if (view === "sql-optimizer" || view === "schema-architect") setView("query-suboptions");
+    else if (view === "db-analyzer-slow" || view === "db-analyzer-active") setView("telemetry-suboptions");
+    else setView("dashboard");
+  };
+
   return (
-    <div className="h-full w-full relative overflow-hidden flex flex-col hud-font text-[#00f3ff] selection:bg-[#00f3ff]/30">
+    <div className={`h-full w-full relative overflow-hidden flex flex-col font-sans transition-opacity duration-1000 ${isLoaded ? 'opacity-100' : 'opacity-0'}`}>
       
-      {/* Header (Full Width, Top Corners) */}
-      <div className="relative z-20 w-full px-6 py-6 flex items-center justify-between shrink-0 border-b border-[#00f3ff]/20 bg-black/60 backdrop-blur-md">
-        <div className="flex items-center gap-4">
+      {/* Premium Header */}
+      <div className="relative z-20 w-full px-8 py-6 flex items-center justify-between shrink-0 border-b border-white/5 bg-[#030305]/80 backdrop-blur-xl">
+        <div className="flex items-center gap-6">
            {view !== "dashboard" && (
-              <Button variant="ghost" size="icon" onClick={() => setView("dashboard")} className="text-[#00f3ff]/60 hover:text-[#00f3ff] hover:bg-[#00f3ff]/10">
+              <Button variant="ghost" size="icon" onClick={goBack} className="text-zinc-400 hover:text-white hover:bg-white/10 transition-colors rounded-full">
                 <ArrowLeft className="w-5 h-5" />
               </Button>
            )}
-           <div>
-              <h1 className="text-2xl font-bold tracking-[0.2em] uppercase flex items-center gap-3">
-                 <Database className="w-5 h-5 text-[#ff9f0a]" />
-                 J.A.R.V.I.S // QS
+           <div className="flex items-center gap-3">
+              <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-fuchsia-500 to-indigo-500 flex items-center justify-center shadow-lg shadow-indigo-500/20">
+                <Database className="w-4 h-4 text-white" />
+              </div>
+              <h1 className="text-xl font-bold tracking-tight text-zinc-100">
+                 QuerySage
               </h1>
-              <p className="text-xs text-[#00f3ff]/50 mt-1 uppercase tracking-widest">Enterprise Database Intelligence Toolkit</p>
            </div>
         </div>
         
         {!isSignedIn && (
            <SignInButton mode="modal" forceRedirectUrl="/">
-              <Button className="bg-transparent border border-[#ff9f0a] text-[#ff9f0a] hover:bg-[#ff9f0a]/20 uppercase tracking-widest font-bold px-6 py-2 h-9 rounded-none text-xs">
-                [ Authenticate ]
+              <Button className="bg-white text-black hover:bg-zinc-200 font-semibold px-6 py-2 h-9 rounded-full text-sm shadow-lg shadow-white/10 transition-all hover:scale-105 active:scale-95">
+                Sign In
               </Button>
            </SignInButton>
         )}
       </div>
 
-      <div className="relative z-10 w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex-1 flex flex-col min-h-0 py-8">
+      <div className="relative z-10 w-full max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 flex-1 flex flex-col min-h-0 py-12">
 
-        {/* --- VIEW: DASHBOARD --- */}
+        {/* --- LEVEL 1: DASHBOARD --- */}
         {view === "dashboard" && (
-          <div className="flex flex-col items-center justify-center flex-1 min-h-0 w-full">
+          <div className="flex flex-col items-center justify-center flex-1 min-h-0 w-full animate-in zoom-in-95 fade-in duration-700 slide-in-from-bottom-4">
             
-            {/* Rotating HUD Rings */}
-            <div className={`relative w-48 h-48 sm:w-64 sm:h-64 mb-8 flex items-center justify-center transition-all duration-1000 transform ${bootStep >= 1 ? 'scale-100 opacity-100' : 'scale-50 opacity-0'}`}>
-               <div className="hud-ring hud-ring-1"></div>
-               <div className="hud-ring hud-ring-2"></div>
-               <div className="hud-ring hud-ring-3"></div>
-               <Database className="w-12 h-12 text-[#00f3ff] opacity-80" />
-            </div>
-
-            {/* Terminal Typing Text */}
-            <div className="min-h-[40px] flex items-center justify-center text-center px-4 mb-12">
-              <h2 className="text-lg md:text-xl font-bold uppercase tracking-widest typing-text">
-                {typingText}
+            <div className="text-center mb-16 space-y-4">
+              <h2 className="text-4xl md:text-6xl font-bold tracking-tight text-white">
+                Intelligence for your <span className="gradient-text-primary">Database</span>
               </h2>
+              <p className="text-zinc-400 text-lg md:text-xl max-w-2xl mx-auto">
+                Select a module to optimize queries, analyze schema, or monitor live database telemetry.
+              </p>
             </div>
 
-            {/* Dashboard Command Modules */}
-            {bootStep >= 2 && (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-8 w-full max-w-4xl animate-in zoom-in-95 fade-in duration-700">
-                
-                {/* Module 1 */}
-                <div 
-                  className="hud-panel p-8 cursor-pointer group flex flex-col items-start justify-center h-48"
-                  onClick={() => {
-                    if (!isSignedIn) clerk.openSignIn();
-                    else setView("sql-optimizer");
-                  }}
-                >
-                  <div className="hud-scanline"></div>
-                  <div className="flex items-center gap-4 mb-4">
-                     <Code2 className="w-8 h-8 text-[#ff9f0a] group-hover:scale-110 transition-transform" />
-                     <h3 className="text-xl font-bold uppercase tracking-widest text-white group-hover:text-[#ff9f0a] transition-colors">SQL Optimizer</h3>
-                  </div>
-                  <p className="text-sm text-[#00f3ff]/60 leading-relaxed uppercase tracking-wide">Initiate query refactoring sequence and analyze index matrices.</p>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-8 w-full max-w-4xl">
+              
+              {/* Option 1 */}
+              <div 
+                className="premium-card p-10 cursor-pointer group flex flex-col items-center text-center h-64 justify-center"
+                onClick={() => {
+                  if (!isSignedIn) clerk.openSignIn();
+                  else setView("query-suboptions");
+                }}
+              >
+                <div className="w-16 h-16 rounded-2xl bg-fuchsia-500/10 flex items-center justify-center mb-6 group-hover:scale-110 transition-transform duration-500 shadow-lg shadow-fuchsia-500/20 group-hover:bg-fuchsia-500/20">
+                   <Code2 className="w-8 h-8 text-fuchsia-400" />
                 </div>
-
-                {/* Module 2 */}
-                <div 
-                  className="hud-panel p-8 cursor-pointer group flex flex-col items-start justify-center h-48"
-                  onClick={() => {
-                    if (!isSignedIn) clerk.openSignIn();
-                    else setView("db-analyzer");
-                  }}
-                >
-                  <div className="hud-scanline"></div>
-                  <div className="flex items-center gap-4 mb-4">
-                     <SearchCode className="w-8 h-8 text-[#ff9f0a] group-hover:scale-110 transition-transform" />
-                     <h3 className="text-xl font-bold uppercase tracking-widest text-white group-hover:text-[#ff9f0a] transition-colors">Telemetry Analyzer</h3>
-                  </div>
-                  <p className="text-sm text-[#00f3ff]/60 leading-relaxed uppercase tracking-wide">Establish secure uplink to fetch live slow-query telemetry data.</p>
-                </div>
-
+                <h3 className="text-2xl font-bold text-white mb-3">Query Intelligence</h3>
+                <p className="text-zinc-400 leading-relaxed">AI-powered optimization for your queries and database schema structures.</p>
               </div>
-            )}
+
+              {/* Option 2 */}
+              <div 
+                className="premium-card p-10 cursor-pointer group flex flex-col items-center text-center h-64 justify-center"
+                onClick={() => {
+                  if (!isSignedIn) clerk.openSignIn();
+                  else setView("telemetry-suboptions");
+                }}
+              >
+                <div className="w-16 h-16 rounded-2xl bg-cyan-500/10 flex items-center justify-center mb-6 group-hover:scale-110 transition-transform duration-500 shadow-lg shadow-cyan-500/20 group-hover:bg-cyan-500/20">
+                   <Activity className="w-8 h-8 text-cyan-400" />
+                </div>
+                <h3 className="text-2xl font-bold text-white mb-3">Database Telemetry</h3>
+                <p className="text-zinc-400 leading-relaxed">Connect securely to your database to analyze live bottlenecks and slow queries.</p>
+              </div>
+
+            </div>
           </div>
         )}
 
-        {/* --- VIEW: SQL OPTIMIZER --- */}
+        {/* --- LEVEL 2: QUERY SUB-OPTIONS --- */}
+        {view === "query-suboptions" && (
+          <div className="flex flex-col items-center justify-center flex-1 min-h-0 w-full animate-in zoom-in-95 fade-in duration-500 slide-in-from-right-8">
+            <div className="text-center mb-12 space-y-4">
+              <h2 className="text-3xl font-bold tracking-tight text-white">
+                <span className="gradient-text-primary">Query Intelligence</span> Modules
+              </h2>
+              <p className="text-zinc-400">Select the specific optimization tool.</p>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-8 w-full max-w-3xl">
+              <div className="premium-card p-8 cursor-pointer group flex flex-col h-48 justify-center" onClick={() => setView("sql-optimizer")}>
+                <div className="flex items-center gap-4 mb-3">
+                   <div className="p-3 rounded-xl bg-indigo-500/10 group-hover:bg-indigo-500/20 transition-colors">
+                     <Zap className="w-6 h-6 text-indigo-400" />
+                   </div>
+                   <h3 className="text-xl font-bold text-white">Single Query Optimizer</h3>
+                </div>
+                <p className="text-zinc-400 text-sm">Paste a raw SQL query to get instant performance fixes and index suggestions.</p>
+              </div>
+
+              <div className="premium-card p-8 cursor-pointer group flex flex-col h-48 justify-center" onClick={() => setView("schema-architect")}>
+                <div className="flex items-center gap-4 mb-3">
+                   <div className="p-3 rounded-xl bg-violet-500/10 group-hover:bg-violet-500/20 transition-colors">
+                     <Blocks className="w-6 h-6 text-violet-400" />
+                   </div>
+                   <h3 className="text-xl font-bold text-white">Schema Architect</h3>
+                </div>
+                <p className="text-zinc-400 text-sm">Upload your DDL schema to receive holistic normalization and architecture advice.</p>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* --- LEVEL 2: TELEMETRY SUB-OPTIONS --- */}
+        {view === "telemetry-suboptions" && (
+          <div className="flex flex-col items-center justify-center flex-1 min-h-0 w-full animate-in zoom-in-95 fade-in duration-500 slide-in-from-right-8">
+            <div className="text-center mb-12 space-y-4">
+              <h2 className="text-3xl font-bold tracking-tight text-white">
+                <span className="gradient-text-secondary">Telemetry</span> Modules
+              </h2>
+              <p className="text-zinc-400">Select the telemetry analysis tool.</p>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-8 w-full max-w-3xl">
+              <div className="premium-card p-8 cursor-pointer group flex flex-col h-48 justify-center" onClick={() => setView("db-analyzer-slow")}>
+                <div className="flex items-center gap-4 mb-3">
+                   <div className="p-3 rounded-xl bg-cyan-500/10 group-hover:bg-cyan-500/20 transition-colors">
+                     <SearchCode className="w-6 h-6 text-cyan-400" />
+                   </div>
+                   <h3 className="text-xl font-bold text-white">Live Slow Queries</h3>
+                </div>
+                <p className="text-zinc-400 text-sm">Connect to your database to automatically fetch and analyze slow-running queries.</p>
+              </div>
+
+              <div className="premium-card p-8 cursor-pointer group flex flex-col h-48 justify-center" onClick={() => setView("db-analyzer-active")}>
+                <div className="flex items-center gap-4 mb-3">
+                   <div className="p-3 rounded-xl bg-blue-500/10 group-hover:bg-blue-500/20 transition-colors">
+                     <Network className="w-6 h-6 text-blue-400" />
+                   </div>
+                   <h3 className="text-xl font-bold text-white">Active Connections</h3>
+                </div>
+                <p className="text-zinc-400 text-sm">Monitor active database connections, locks, and connection pool bottlenecks.</p>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* --- LEVEL 3: SQL OPTIMIZER --- */}
         {view === "sql-optimizer" && (
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 animate-in fade-in slide-in-from-right-8 duration-500 flex-1 min-h-0">
-            
             {/* Left Pane: Input */}
-            <div className="hud-panel flex flex-col h-full min-h-0">
-               <div className="hud-scanline"></div>
-               <div className="border-b border-[#00f3ff]/20 p-4 shrink-0 bg-[#00f3ff]/5">
-                 <h3 className="text-lg font-bold uppercase tracking-widest flex items-center gap-2">
-                   <Code2 className="w-5 h-5 text-[#ff9f0a]" /> [ RAW_QUERY_INPUT ]
+            <div className="premium-card flex flex-col h-full min-h-0 border-white/5">
+               <div className="border-b border-white/5 p-5 shrink-0 bg-white/[0.02]">
+                 <h3 className="text-base font-semibold text-white flex items-center gap-2">
+                   Raw SQL Input
                  </h3>
                </div>
-               <div className="flex-1 flex flex-col min-h-0 p-4">
+               <div className="flex-1 flex flex-col min-h-0 p-5">
                   <Textarea 
                      value={rawSql}
                      onChange={(e) => setRawSql(e.target.value)}
-                     placeholder="> Enter SQL sequence here..."
-                     className="flex-1 w-full h-full resize-none bg-black/40 border border-[#00f3ff]/20 focus-visible:ring-1 focus-visible:ring-[#00f3ff] text-[#00f3ff] hud-font text-sm p-4 rounded-none"
+                     placeholder="Enter your SQL query here..."
+                     className="flex-1 w-full h-full resize-none bg-black/40 border-0 focus-visible:ring-1 focus-visible:ring-fuchsia-500/50 text-zinc-300 text-sm p-4 rounded-xl"
                   />
                </div>
-               <div className="p-4 border-t border-[#00f3ff]/20 shrink-0 bg-[#00f3ff]/5">
+               <div className="p-5 border-t border-white/5 shrink-0 bg-white/[0.02]">
                   <Button 
                     onClick={() => handleOptimize(rawSql)} 
                     disabled={isOptimizing || !rawSql.trim()}
-                    className="w-full bg-[#00f3ff]/10 hover:bg-[#00f3ff]/20 border border-[#00f3ff] text-[#00f3ff] uppercase tracking-widest font-bold rounded-none h-12"
+                    className="w-full bg-white text-black hover:bg-zinc-200 font-semibold rounded-xl h-12 transition-all hover:scale-[1.02] active:scale-[0.98]"
                   >
-                    {isOptimizing ? <><Loader2 className="w-4 h-4 mr-3 animate-spin" /> Processing...</> : <><Zap className="w-4 h-4 mr-3 text-[#ff9f0a]" /> Execute Analysis</>}
+                    {isOptimizing ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Analyzing Query...</> : "Run Optimization"}
                   </Button>
                </div>
             </div>
 
             {/* Right Pane: Output */}
-            <div className="hud-panel flex flex-col h-full min-h-0">
-               <div className="hud-scanline"></div>
-               <div className="border-b border-[#00f3ff]/20 p-4 shrink-0 bg-[#00f3ff]/5">
-                 <h3 className="text-lg font-bold uppercase tracking-widest flex items-center gap-2">
-                   <Zap className="w-5 h-5 text-[#ff9f0a]" /> [ OPTIMIZED_OUTPUT ]
+            <div className="premium-card flex flex-col h-full min-h-0 border-white/5">
+               <div className="border-b border-white/5 p-5 shrink-0 bg-white/[0.02]">
+                 <h3 className="text-base font-semibold text-white flex items-center gap-2">
+                   AI Analysis
                  </h3>
                </div>
                <div className="p-6 overflow-y-auto flex-1 min-h-0">
                   {!optimizedOutput && !isOptimizing ? (
-                     <div className="h-full flex items-center justify-center text-[#00f3ff]/40 text-sm uppercase tracking-widest">
-                       {'>'} Awaiting Execution...
+                     <div className="h-full flex items-center justify-center text-zinc-600 text-sm">
+                       Run an optimization to see the results here.
                      </div>
                   ) : (
-                     <div className="prose prose-sm md:prose-base prose-invert max-w-none text-[#00f3ff] prose-p:leading-relaxed prose-pre:bg-black/80 prose-pre:border prose-pre:border-[#00f3ff]/30 prose-pre:rounded-none">
+                     <div className="prose prose-sm md:prose-base prose-invert max-w-none text-zinc-300 prose-p:leading-relaxed prose-pre:bg-[#0a0a0c] prose-pre:border prose-pre:border-white/10 prose-pre:rounded-xl">
                         <ReactMarkdown>{optimizedOutput}</ReactMarkdown>
                      </div>
                   )}
                </div>
             </div>
-
           </div>
         )}
 
-        {/* --- VIEW: DB ANALYZER --- */}
-        {view === "db-analyzer" && (
-           <div className="animate-in fade-in slide-in-from-right-8 duration-500 flex-1 flex flex-col min-h-0 overflow-hidden">
-              
+        {/* --- LEVEL 3: SCHEMA ARCHITECT (Coming Soon Placeholder) --- */}
+        {view === "schema-architect" && (
+          <div className="flex flex-col items-center justify-center flex-1 min-h-0 w-full animate-in fade-in duration-500">
+             <Blocks className="w-16 h-16 text-zinc-700 mb-4" />
+             <h2 className="text-2xl font-bold text-white mb-2">Schema Architect</h2>
+             <p className="text-zinc-500">This module is currently in development.</p>
+          </div>
+        )}
+
+        {/* --- LEVEL 3: ACTIVE CONNECTIONS (Coming Soon Placeholder) --- */}
+        {view === "db-analyzer-active" && (
+          <div className="flex flex-col items-center justify-center flex-1 min-h-0 w-full animate-in fade-in duration-500">
+             <Network className="w-16 h-16 text-zinc-700 mb-4" />
+             <h2 className="text-2xl font-bold text-white mb-2">Active Connections Analyzer</h2>
+             <p className="text-zinc-500">This module is currently in development.</p>
+          </div>
+        )}
+
+        {/* --- LEVEL 3: LIVE SLOW QUERIES --- */}
+        {view === "db-analyzer-slow" && (
+           <div className="animate-in fade-in slide-in-from-right-8 duration-500 flex-1 flex flex-col min-h-0 overflow-hidden w-full max-w-5xl mx-auto">
               {!isConnected ? (
-                 <div className="max-w-md mx-auto mt-20 hud-panel p-8 w-full">
-                    <div className="hud-scanline"></div>
-                    <h3 className="text-xl font-bold uppercase tracking-widest mb-2 flex items-center gap-3">
-                       <Database className="text-[#ff9f0a]" /> ESTABLISH UPLINK
-                    </h3>
-                    <p className="text-xs text-[#00f3ff]/60 uppercase tracking-widest mb-8">Enter connection URI to fetch live telemetry.</p>
+                 <div className="max-w-md mx-auto mt-20 premium-card p-10 w-full">
+                    <h3 className="text-2xl font-bold text-white mb-2">Connect Database</h3>
+                    <p className="text-sm text-zinc-400 mb-8">Enter your connection string to securely fetch telemetry.</p>
                     
                     <form onSubmit={mockConnectDb} className="space-y-6">
                        <div className="space-y-3">
-                          <label className="text-xs font-bold uppercase tracking-widest text-[#00f3ff]">URI String</label>
-                          <Input placeholder="postgresql://user:pass@host:5432/db" required className="bg-black/50 border-[#00f3ff]/40 text-[#00f3ff] focus-visible:ring-[#00f3ff] rounded-none hud-font" />
+                          <label className="text-sm font-medium text-zinc-300">Connection URI</label>
+                          <Input placeholder="postgresql://user:pass@host:5432/db" required className="bg-black/50 border-white/10 text-white focus-visible:ring-cyan-500/50 rounded-xl h-12" />
                        </div>
-                       <Button type="submit" disabled={isConnecting} className="w-full bg-[#ff9f0a]/10 hover:bg-[#ff9f0a]/20 border border-[#ff9f0a] text-[#ff9f0a] uppercase tracking-widest font-bold rounded-none h-12">
-                          {isConnecting ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Connecting...</> : "Initialize Link"}
+                       <Button type="submit" disabled={isConnecting} className="w-full bg-white text-black hover:bg-zinc-200 font-semibold rounded-xl h-12 transition-all hover:scale-[1.02] active:scale-[0.98]">
+                          {isConnecting ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Connecting...</> : "Initialize Connection"}
                        </Button>
                     </form>
                  </div>
               ) : (
-                 <div className="hud-panel flex flex-col h-full min-h-0 w-full max-w-5xl mx-auto">
-                    <div className="hud-scanline"></div>
-                    <div className="border-b border-[#00f3ff]/20 p-6 shrink-0 bg-[#00f3ff]/5 flex justify-between items-center">
+                 <div className="premium-card flex flex-col h-full min-h-0 w-full">
+                    <div className="border-b border-white/5 p-6 shrink-0 bg-white/[0.02] flex justify-between items-center">
                        <div>
-                          <h3 className="text-xl font-bold uppercase tracking-widest flex items-center gap-3 text-white">
-                             <Activity className="w-6 h-6 text-[#ff9f0a]" /> TELEMETRY: SLOW QUERIES
-                          </h3>
-                          <p className="text-xs text-[#00f3ff]/60 uppercase tracking-widest mt-1">Live data feed from pg_stat_statements</p>
+                          <h3 className="text-lg font-bold text-white">Live Slow Queries</h3>
+                          <p className="text-sm text-zinc-400 mt-1">Fetched from pg_stat_statements</p>
                        </div>
-                       <div className="text-xs font-bold text-[#ff9f0a] uppercase tracking-widest animate-pulse border border-[#ff9f0a]/30 px-3 py-1 bg-[#ff9f0a]/10">
-                          Live
+                       <div className="text-xs font-semibold text-cyan-400 px-3 py-1 bg-cyan-500/10 rounded-full flex items-center gap-2 border border-cyan-500/20">
+                          <div className="w-2 h-2 rounded-full bg-cyan-400 animate-pulse"></div> Live Connected
                        </div>
                     </div>
                     <div className="p-0 flex-1 min-h-0 overflow-y-auto">
                        <table className="w-full text-left border-collapse text-sm">
-                          <thead className="bg-[#00f3ff]/10 sticky top-0">
+                          <thead className="bg-black/40 sticky top-0 backdrop-blur-md z-10">
                              <tr>
-                                <th className="p-4 border-b border-[#00f3ff]/20 font-bold uppercase tracking-widest">Query Stream</th>
-                                <th className="p-4 border-b border-[#00f3ff]/20 font-bold uppercase tracking-widest w-32">Latency</th>
-                                <th className="p-4 border-b border-[#00f3ff]/20 font-bold uppercase tracking-widest w-24">Hits</th>
-                                <th className="p-4 border-b border-[#00f3ff]/20 font-bold uppercase tracking-widest text-right w-32">Action</th>
+                                <th className="p-5 border-b border-white/5 font-semibold text-zinc-300">Query String</th>
+                                <th className="p-5 border-b border-white/5 font-semibold text-zinc-300 w-32">Latency</th>
+                                <th className="p-5 border-b border-white/5 font-semibold text-zinc-300 w-24">Hits</th>
+                                <th className="p-5 border-b border-white/5 font-semibold text-zinc-300 text-right w-32">Action</th>
                              </tr>
                           </thead>
                           <tbody>
                              {MOCK_SLOW_QUERIES.map((q) => (
-                                <tr key={q.id} className="border-b border-[#00f3ff]/10 hover:bg-[#00f3ff]/5 transition-colors">
-                                   <td className="p-4 font-mono text-xs text-[#00f3ff]/80 truncate max-w-md">{q.query}</td>
-                                   <td className="p-4 font-bold text-[#ff9f0a]">{q.duration}</td>
-                                   <td className="p-4">{q.calls}</td>
-                                   <td className="p-4 text-right">
-                                      <Button size="sm" variant="outline" className="border-[#ff9f0a]/50 hover:bg-[#ff9f0a]/20 text-[#ff9f0a] rounded-none uppercase tracking-widest text-xs h-8" onClick={() => {
+                                <tr key={q.id} className="border-b border-white/5 hover:bg-white/[0.02] transition-colors">
+                                   <td className="p-5 font-mono text-xs text-zinc-400 truncate max-w-md">{q.query}</td>
+                                   <td className="p-5 font-semibold text-white">{q.duration}</td>
+                                   <td className="p-5 text-zinc-400">{q.calls}</td>
+                                   <td className="p-5 text-right">
+                                      <Button size="sm" variant="secondary" className="rounded-lg font-medium bg-white/10 hover:bg-white/20 text-white h-8" onClick={() => {
                                          setRawSql(q.query);
                                          setView("sql-optimizer");
                                          setTimeout(() => handleOptimize(q.query), 300);
