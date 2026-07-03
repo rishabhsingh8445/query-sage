@@ -146,8 +146,15 @@ export default function SchemaChatPage() {
   return (
     <div className={`h-full w-full relative overflow-hidden flex flex-col font-sans transition-opacity duration-1000 ${isLoaded ? 'opacity-100' : 'opacity-0'}`}>
       
+      {/* Mesh Background */}
+      <div className="mesh-bg-container">
+        <div className="mesh-orb mesh-orb-1"></div>
+        <div className="mesh-orb mesh-orb-2"></div>
+        <div className="mesh-orb mesh-orb-3"></div>
+      </div>
+
       {/* Premium Header */}
-      <div className="relative z-20 w-full px-8 py-6 flex items-center justify-between shrink-0 border-b border-white/5 bg-[#030305]/80 backdrop-blur-xl">
+      <div className="relative z-20 w-full px-8 py-6 flex items-center justify-between shrink-0 border-b border-white/5 bg-[#030305]/60 backdrop-blur-xl">
         <div className="flex items-center gap-6">
            {view !== "dashboard" && (
               <Button variant="ghost" size="icon" onClick={goBack} className="text-zinc-400 hover:text-white hover:bg-white/10 transition-colors rounded-full">
