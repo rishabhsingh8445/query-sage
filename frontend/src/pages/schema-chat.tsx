@@ -151,7 +151,10 @@ export default function SchemaChatPage() {
 
     try {
       const token = await getToken();
-      const response = await fetch(`${import.meta.env.VITE_API_URL}/api/schema-chat`, {
+      const baseUrl = import.meta.env.VITE_API_URL || "";
+      const apiUrl = `${baseUrl}/api/schema-chat`;
+      
+      const response = await fetch(apiUrl, {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
         body: JSON.stringify({
@@ -162,7 +165,7 @@ export default function SchemaChatPage() {
         }),
       });
 
-      if (!response.ok) throw new Error("Failed to send message");
+      if (!response.ok) throw new Error("Backend connection failed.");
 
       setMessages((prev: ChatMessage[]) => [...(prev || []), { role: "assistant", content: "" }]);
       assistantMessageAdded = true;
@@ -193,7 +196,8 @@ export default function SchemaChatPage() {
                 setMessages((prev: ChatMessage[]) => {
                   const newMsgs = [...(prev || [])];
                   if (newMsgs[newMsgs.length - 1]?.role === "assistant" && !newMsgs[newMsgs.length - 1].content) {
-                    return newMsgs.slice(0, -1);
+                     newMsgs[newMsgs.length - 1].content = `⚠️ **Error:** ${errorMsg}`;
+                     newMsgs[newMsgs.length - 1].isAuthWarning = true;
                   }
                   return newMsgs;
                 });
@@ -220,9 +224,24 @@ export default function SchemaChatPage() {
         }
       }
     } catch (err) {
-      toast.error("Failed to communicate with AI");
+      console.error(err);
+      toast.error("Failed to connect to Python Backend.");
       if (assistantMessageAdded) {
-        setMessages((prev: ChatMessage[]) => (prev || []).slice(0, -1));
+         setMessages((prev: ChatMessage[]) => {
+            const newMsgs = [...(prev || [])];
+            newMsgs[newMsgs.length - 1].content = "⚠️ **Backend Connection Failed:**\n\nCould not connect to the Python backend. Ensure that your backend is running and `VITE_API_URL` is set correctly.";
+            newMsgs[newMsgs.length - 1].isAuthWarning = true;
+            return newMsgs;
+         });
+      } else {
+         setMessages((prev: ChatMessage[]) => [
+            ...(prev || []), 
+            { 
+               role: "assistant", 
+               content: "⚠️ **Backend Connection Failed:**\n\nCould not connect to the Python backend. Ensure that your backend is running locally or deployed, and `VITE_API_URL` is configured.", 
+               isAuthWarning: true 
+            }
+         ]);
       }
     } finally {
       setIsLoading(false);
