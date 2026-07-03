@@ -12,7 +12,7 @@ def get_groq_llm(temperature=0.2):
 
 def get_gemini_llm(temperature=0.2):
     return ChatGoogleGenerativeAI(
-        model="gemini-1.5-flash",
+        model="gemini-1.5-flash-latest",
         api_key=os.getenv("GEMINI_API_KEY", "dummy-key"),
         temperature=temperature
     )

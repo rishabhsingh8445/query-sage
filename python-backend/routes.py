@@ -198,7 +198,7 @@ Explanation:
             
             yield "event: done\ndata: {\"success\": true}\n\n"
         except Exception as e:
-            yield f"event: error\ndata: {json.dumps(f'AI Chat failed: {str(e)}')}\n\n"
+            yield f"event: error\ndata: {json.dumps(f'AI Optimization failed: {str(e)}')}\n\n"
 
     return StreamingResponse(event_generator(), media_type="text/event-stream")
 
@@ -316,7 +316,7 @@ async def schema_chat(request: SchemaChatBody, user_id: str = Depends(get_curren
                 
             yield "event: done\ndata: {\"success\": true}\n\n"
         except Exception as e:
-            yield f"event: error\ndata: {json.dumps(f'AI Chat failed: {str(e)}')}\n\n"
+            yield f"event: error\ndata: {json.dumps(f'AI Optimization failed: {str(e)}')}\n\n"
         
     return StreamingResponse(event_generator(), media_type="text/event-stream")
 

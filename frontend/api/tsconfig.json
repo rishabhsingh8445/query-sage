@@ -1,9 +1,0 @@
-{
-  "compilerOptions": {
-    "skipLibCheck": true,
-    "moduleResolution": "bundler",
-    "target": "ESNext",
-    "module": "ESNext",
-    "esModuleInterop": true
-  }
-}
