@@ -6,8 +6,11 @@ import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ArrowLeft, Database, Code2, Zap, SearchCode, Loader2, Activity } from "lucide-react";
 import ReactMarkdown from "react-markdown";
+import ReactDiffViewer from 'react-diff-viewer-continued';
 import { toast } from "sonner";
 
 type ViewState = "dashboard" | "sql-optimizer" | "db-analyzer";
@@ -26,6 +29,18 @@ export default function SchemaChatPage() {
   const [rawSql, setRawSql] = useState("");
   const [optimizedOutput, setOptimizedOutput] = useState("");
   const [isOptimizing, setIsOptimizing] = useState(false);
+  
+  // Advanced Context States
+  const [dialect, setDialect] = useState("PostgreSQL");
+  const [optimizationGoal, setOptimizationGoal] = useState("Max Performance");
+  const [schemaContext, setSchemaContext] = useState("");
+  const [explainPlan, setExplainPlan] = useState("");
+  const [outputViewMode, setOutputViewMode] = useState<"explanation" | "diff">("explanation");
+  
+  const extractSqlBlock = (markdown: string) => {
+    const match = markdown.match(/```sql\n([\s\S]*?)```/);
+    return match ? match[1].trim() : "";
+  };
 
   // DB Analyzer State
   const [isConnected, setIsConnected] = useState(false);
@@ -83,11 +98,19 @@ export default function SchemaChatPage() {
       const baseUrl = import.meta.env.VITE_API_URL || "";
       const apiUrl = `${baseUrl}/api/schema-chat`;
       
+      let fullMessage = `Please optimize the following SQL query for the ${dialect} database.\nGoal: ${optimizationGoal}.\n\nRaw Query:\n\`\`\`sql\n${sqlToOptimize}\n\`\`\``;
+      if (schemaContext.trim()) {
+        fullMessage += `\n\nSchema Context (DDL):\n\`\`\`sql\n${schemaContext}\n\`\`\``;
+      }
+      if (explainPlan.trim()) {
+        fullMessage += `\n\nExecution Plan (EXPLAIN ANALYZE):\n\`\`\`\n${explainPlan}\n\`\`\``;
+      }
+      
       const response = await fetch(apiUrl, {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
         body: JSON.stringify({
-          message: `Please optimize the following SQL query. Return the optimized code block and a brief explanation of the performance improvements (e.g. index utilization, joins):\n\n\`\`\`sql\n${sqlToOptimize}\n\`\`\``,
+          message: fullMessage,
           chat_history: [],
           timezone_offset: new Date().getTimezoneOffset(),
         }),
@@ -262,18 +285,72 @@ export default function SchemaChatPage() {
             
             {/* Left Pane: Input */}
             <Card className="bg-[#111113]/80 border-zinc-800/50 backdrop-blur-xl flex flex-col shadow-xl overflow-hidden h-full min-h-0">
-               <CardHeader className="border-b border-zinc-800/50 pb-4 bg-black/20 shrink-0">
-                 <CardTitle className="text-lg text-zinc-100 flex items-center gap-2">
-                   <Code2 className="w-5 h-5 text-indigo-400" /> Raw Query
+               <CardHeader className="border-b border-zinc-800/50 py-3 px-4 bg-black/20 shrink-0 flex flex-row items-center justify-between">
+                 <CardTitle className="text-base text-zinc-100 flex items-center gap-2">
+                   <Code2 className="w-5 h-5 text-indigo-400" /> Optimizer Context
                  </CardTitle>
+                 <div className="flex gap-2">
+                   <Select value={dialect} onValueChange={setDialect}>
+                     <SelectTrigger className="w-[120px] h-8 bg-black/40 border-zinc-700 text-xs">
+                       <SelectValue placeholder="Dialect" />
+                     </SelectTrigger>
+                     <SelectContent>
+                       <SelectItem value="PostgreSQL">PostgreSQL</SelectItem>
+                       <SelectItem value="MySQL">MySQL</SelectItem>
+                       <SelectItem value="SQL Server">SQL Server</SelectItem>
+                       <SelectItem value="Oracle">Oracle</SelectItem>
+                       <SelectItem value="SQLite">SQLite</SelectItem>
+                     </SelectContent>
+                   </Select>
+                   
+                   <Select value={optimizationGoal} onValueChange={setOptimizationGoal}>
+                     <SelectTrigger className="w-[140px] h-8 bg-black/40 border-zinc-700 text-xs">
+                       <SelectValue placeholder="Goal" />
+                     </SelectTrigger>
+                     <SelectContent>
+                       <SelectItem value="Max Performance">Max Performance</SelectItem>
+                       <SelectItem value="Low CPU/Memory">Low CPU/Memory</SelectItem>
+                       <SelectItem value="Format & Lint Only">Format & Lint Only</SelectItem>
+                     </SelectContent>
+                   </Select>
+                 </div>
                </CardHeader>
                <CardContent className="p-0 flex-1 flex flex-col min-h-0">
-                  <Textarea 
-                     value={rawSql}
-                     onChange={(e) => setRawSql(e.target.value)}
-                     placeholder="Paste your slow SQL query here..."
-                     className="flex-1 w-full h-full resize-none bg-transparent border-0 focus-visible:ring-0 text-zinc-200 font-mono text-sm p-4 rounded-none"
-                  />
+                  <Tabs defaultValue="query" className="flex-1 flex flex-col min-h-0 rounded-none w-full">
+                     <TabsList className="bg-black/30 border-b border-zinc-800/50 rounded-none justify-start h-10 px-2 w-full shrink-0">
+                        <TabsTrigger value="query" className="text-xs data-[state=active]:bg-indigo-500/20 data-[state=active]:text-indigo-300 rounded-sm">Raw Query</TabsTrigger>
+                        <TabsTrigger value="schema" className="text-xs data-[state=active]:bg-indigo-500/20 data-[state=active]:text-indigo-300 rounded-sm">Schema (DDL)</TabsTrigger>
+                        <TabsTrigger value="explain" className="text-xs data-[state=active]:bg-indigo-500/20 data-[state=active]:text-indigo-300 rounded-sm">Execution Plan</TabsTrigger>
+                     </TabsList>
+                     
+                     <TabsContent value="query" className="flex-1 min-h-0 m-0 border-0 p-0 flex flex-col w-full h-full data-[state=active]:flex">
+                        <Textarea 
+                           value={rawSql}
+                           onChange={(e) => setRawSql(e.target.value)}
+                           placeholder="Paste your slow SQL query here..."
+                           className="flex-1 w-full h-full resize-none bg-transparent border-0 focus-visible:ring-0 text-zinc-200 font-mono text-sm p-4 rounded-none min-h-0"
+                        />
+                     </TabsContent>
+                     
+                     <TabsContent value="schema" className="flex-1 min-h-0 m-0 border-0 p-0 flex flex-col w-full h-full data-[state=active]:flex">
+                        <Textarea 
+                           value={schemaContext}
+                           onChange={(e) => setSchemaContext(e.target.value)}
+                           placeholder="Paste table definitions (CREATE TABLE...) to help AI optimize indexes and joins..."
+                           className="flex-1 w-full h-full resize-none bg-transparent border-0 focus-visible:ring-0 text-zinc-400 font-mono text-sm p-4 rounded-none min-h-0"
+                        />
+                     </TabsContent>
+
+                     <TabsContent value="explain" className="flex-1 min-h-0 m-0 border-0 p-0 flex flex-col w-full h-full data-[state=active]:flex">
+                        <Textarea 
+                           value={explainPlan}
+                           onChange={(e) => setExplainPlan(e.target.value)}
+                           placeholder="Paste the output of EXPLAIN ANALYZE for this query..."
+                           className="flex-1 w-full h-full resize-none bg-transparent border-0 focus-visible:ring-0 text-zinc-400 font-mono text-sm p-4 rounded-none min-h-0"
+                        />
+                     </TabsContent>
+                  </Tabs>
+
                   <div className="p-4 border-t border-zinc-800/50 bg-black/20 shrink-0">
                      <Button 
                        onClick={() => handleOptimize(rawSql)} 
@@ -288,19 +365,62 @@ export default function SchemaChatPage() {
 
             {/* Right Pane: Output */}
             <Card className="bg-[#111113]/80 border-zinc-800/50 backdrop-blur-xl flex flex-col shadow-xl overflow-hidden h-full min-h-0">
-               <CardHeader className="border-b border-zinc-800/50 pb-4 bg-black/20 shrink-0">
-                 <CardTitle className="text-lg text-zinc-100 flex items-center gap-2">
+               <CardHeader className="border-b border-zinc-800/50 py-3 px-4 bg-black/20 shrink-0 flex flex-row items-center justify-between">
+                 <CardTitle className="text-base text-zinc-100 flex items-center gap-2">
                    <Zap className="w-5 h-5 text-indigo-400" /> AI Optimization Plan
                  </CardTitle>
+                 {optimizedOutput && (
+                    <div className="flex bg-black/40 rounded-lg p-1 border border-zinc-800">
+                       <button onClick={() => setOutputViewMode("explanation")} className={`px-3 py-1 text-xs rounded-md transition-colors ${outputViewMode === 'explanation' ? 'bg-indigo-500/20 text-indigo-300' : 'text-zinc-500 hover:text-zinc-300'}`}>Explanation</button>
+                       <button onClick={() => setOutputViewMode("diff")} className={`px-3 py-1 text-xs rounded-md transition-colors ${outputViewMode === 'diff' ? 'bg-indigo-500/20 text-indigo-300' : 'text-zinc-500 hover:text-zinc-300'}`}>Code Diff</button>
+                    </div>
+                 )}
                </CardHeader>
-               <CardContent className="p-6 overflow-y-auto custom-scrollbar flex-1 min-h-0 bg-[#0a0a0c]/50">
+               <CardContent className="p-0 overflow-hidden flex-1 flex flex-col min-h-0 bg-[#0a0a0c]/50">
                   {!optimizedOutput && !isOptimizing ? (
-                     <div className="h-full flex items-center justify-center text-zinc-500 text-sm">
+                     <div className="h-full flex items-center justify-center text-zinc-500 text-sm p-6">
                        Run optimization to see the results here.
                      </div>
-                  ) : (
-                     <div className="prose prose-sm md:prose-base dark:prose-invert max-w-none prose-p:leading-loose prose-pre:bg-[#050505] prose-pre:border prose-pre:border-zinc-800/80 prose-pre:rounded-xl font-light tracking-wide text-zinc-200">
+                  ) : outputViewMode === "explanation" ? (
+                     <div className="prose prose-sm md:prose-base dark:prose-invert max-w-none prose-p:leading-loose prose-pre:bg-[#050505] prose-pre:border prose-pre:border-zinc-800/80 prose-pre:rounded-xl font-light tracking-wide text-zinc-200 overflow-y-auto custom-scrollbar p-6">
                         <ReactMarkdown>{optimizedOutput}</ReactMarkdown>
+                     </div>
+                  ) : (
+                     <div className="h-full overflow-auto text-sm custom-scrollbar bg-[#111] diff-viewer-wrapper">
+                        <ReactDiffViewer
+                           oldValue={rawSql}
+                           newValue={extractSqlBlock(optimizedOutput) || "-- AI hasn't generated valid SQL yet.\n-- See explanation for details."}
+                           splitView={true}
+                           useDarkTheme={true}
+                           hideLineNumbers={false}
+                           styles={{
+                             variables: {
+                               dark: {
+                                 diffViewerBackground: '#0a0a0c',
+                                 diffViewerColor: '#d4d4d8',
+                                 addedBackground: '#042f1b',
+                                 addedColor: '#34d399',
+                                 removedBackground: '#3f1115',
+                                 removedColor: '#f87171',
+                                 wordAddedBackground: '#065f37',
+                                 wordRemovedBackground: '#7f1d1d',
+                                 addedGutterBackground: '#042f1b',
+                                 removedGutterBackground: '#3f1115',
+                                 gutterBackground: '#0a0a0c',
+                                 gutterBackgroundDark: '#0a0a0c',
+                                 highlightBackground: '#2a2a2a',
+                                 highlightGutterBackground: '#2a2a2a',
+                                 codeFoldGutterBackground: '#0a0a0c',
+                                 codeFoldBackground: '#0a0a0c',
+                                 emptyLineBackground: '#0a0a0c',
+                                 gutterColor: '#52525b',
+                                 addedGutterColor: '#34d399',
+                                 removedGutterColor: '#f87171',
+                                 codeFoldContentColor: '#52525b',
+                               }
+                             }
+                           }}
+                        />
                      </div>
                   )}
                </CardContent>
