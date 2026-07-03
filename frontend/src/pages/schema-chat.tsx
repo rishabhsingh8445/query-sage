@@ -8,12 +8,14 @@ import { Label } from "@/components/ui/label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ArrowLeft, Database, Code2, Zap, SearchCode, Loader2, Activity } from "lucide-react";
+import { ArrowLeft, Database, Code2, Zap, SearchCode, Loader2, Activity, Network, Play } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import ReactDiffViewer from 'react-diff-viewer-continued';
+import { ReactFlow, Background, Controls, applyNodeChanges, applyEdgeChanges, type Node, type Edge, type NodeChange, type EdgeChange } from '@xyflow/react';
+import '@xyflow/react/dist/style.css';
 import { toast } from "sonner";
 
-type ViewState = "dashboard" | "sql-optimizer" | "db-analyzer";
+type ViewState = "dashboard" | "sql-optimizer" | "db-analyzer" | "schema-builder";
 
 export default function SchemaChatPage() {
   const { getToken, isSignedIn } = useAuth();
@@ -46,12 +48,74 @@ export default function SchemaChatPage() {
   const [isConnected, setIsConnected] = useState(false);
   const [isConnecting, setIsConnecting] = useState(false);
   
+  // Schema Builder State
+  const [schemaDDL, setSchemaDDL] = useState("");
+  const [nodes, setNodes] = useState<Node[]>([]);
+  const [edges, setEdges] = useState<Edge[]>([]);
+
+  const onNodesChange = (changes: NodeChange<Node>[]) => setNodes((nds) => applyNodeChanges(changes, nds));
+  const onEdgesChange = (changes: EdgeChange<Edge>[]) => setEdges((eds) => applyEdgeChanges(changes, eds));
+
+  const generateDiagram = () => {
+    if (!schemaDDL.trim()) {
+      setNodes([]);
+      setEdges([]);
+      return;
+    }
+    const tableRegex = /CREATE TABLE\s+([a-zA-Z0-9_]+)\s*\(([\s\S]*?)\);/gi;
+    const newNodes: Node[] = [];
+    const newEdges: Edge[] = [];
+    let match;
+    let yOffset = 0;
+    let xOffset = 0;
+    while ((match = tableRegex.exec(schemaDDL)) !== null) {
+      const tableName = match[1];
+      const columnsBlock = match[2];
+      const columns = columnsBlock.split(',').map(c => c.trim().split(' ')[0]).filter(c => c && !c.toLowerCase().includes('foreign') && !c.toLowerCase().includes('primary') && !c.toLowerCase().includes('constraint'));
+      newNodes.push({
+        id: tableName,
+        position: { x: xOffset, y: yOffset },
+        data: { 
+          label: (
+            <div className="flex flex-col text-left">
+              <div className="font-bold text-xs bg-indigo-500/20 text-indigo-200 px-2 py-1 rounded-t-md border-b border-indigo-500/30">
+                {tableName}
+              </div>
+              <div className="bg-[#111113] p-2 rounded-b-md text-[10px] text-zinc-400 font-mono">
+                {columns.map((c, i) => <div key={i}>{c}</div>)}
+              </div>
+            </div>
+          ) 
+        },
+        style: { background: 'transparent', border: '1px solid rgba(99, 102, 241, 0.2)', borderRadius: '6px', padding: 0, width: 150 }
+      });
+      const fkRegex = /FOREIGN KEY\s*\([^\)]+\)\s*REFERENCES\s+([a-zA-Z0-9_]+)/gi;
+      let fkMatch;
+      while ((fkMatch = fkRegex.exec(columnsBlock)) !== null) {
+        newEdges.push({
+          id: `e-${tableName}-${fkMatch[1]}`,
+          source: tableName,
+          target: fkMatch[1],
+          animated: true,
+          style: { stroke: '#8b5cf6' }
+        });
+      }
+      xOffset += 200;
+      if (xOffset > 600) {
+        xOffset = 0;
+        yOffset += 150;
+      }
+    }
+    setNodes(newNodes);
+    setEdges(newEdges);
+  };
+  
   useEffect(() => {
     // Handle redirect from login
     const params = new URLSearchParams(window.location.search);
     const viewParam = params.get("view") as ViewState | null;
     
-    if (viewParam && (viewParam === "sql-optimizer" || viewParam === "db-analyzer")) {
+    if (viewParam && (viewParam === "sql-optimizer" || viewParam === "db-analyzer" || viewParam === "schema-builder")) {
       if (view !== viewParam) {
         setView(viewParam);
       }
@@ -240,7 +304,7 @@ export default function SchemaChatPage() {
 
             {/* Dashboard Tool Cards (Fade in after sequence) */}
             {introStep >= 2 && (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 w-full max-w-4xl animate-in fade-in slide-in-from-bottom-8 duration-1000 mt-4 card-3d-wrapper">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6 w-full max-w-5xl animate-in fade-in slide-in-from-bottom-8 duration-1000 mt-4 card-3d-wrapper">
                 
                 <Card 
                   className="card-3d bg-[#111113]/80 border-zinc-800/50 backdrop-blur-xl hover:border-indigo-500/50 hover:bg-zinc-900/80 cursor-pointer group" 
@@ -253,8 +317,24 @@ export default function SchemaChatPage() {
                     <div className="w-16 h-16 bg-indigo-500/10 rounded-xl flex items-center justify-center mb-6 group-hover:bg-indigo-500/20 group-hover:scale-110 transition-all duration-300 group-hover:shadow-[0_0_30px_rgba(99,102,241,0.3)]">
                       <Code2 className="w-8 h-8 text-indigo-400 group-hover:animate-pulse" />
                     </div>
-                    <CardTitle className="text-2xl text-zinc-100 font-bold tracking-wide group-hover:text-indigo-300 transition-colors">SQL Optimizer Studio</CardTitle>
-                    <CardDescription className="text-zinc-400 text-base leading-relaxed mt-4 group-hover:text-zinc-300 transition-colors">Paste raw SQL queries to automatically rewrite them for maximum performance and index utilization.</CardDescription>
+                    <CardTitle className="text-xl text-zinc-100 font-bold tracking-wide group-hover:text-indigo-300 transition-colors">SQL Optimizer</CardTitle>
+                    <CardDescription className="text-zinc-400 text-sm leading-relaxed mt-4 group-hover:text-zinc-300 transition-colors">Paste raw SQL queries to rewrite them for maximum performance.</CardDescription>
+                  </CardHeader>
+                </Card>
+
+                <Card 
+                  className="card-3d bg-[#111113]/80 border-zinc-800/50 backdrop-blur-xl hover:border-pink-500/50 hover:bg-zinc-900/80 cursor-pointer group" 
+                  onClick={() => {
+                    if (!isSignedIn) clerk.openSignIn({ forceRedirectUrl: `${window.location.pathname}?view=schema-builder` });
+                    else setView("schema-builder");
+                  }}
+                >
+                  <CardHeader className="p-8">
+                    <div className="w-16 h-16 bg-pink-500/10 rounded-xl flex items-center justify-center mb-6 group-hover:bg-pink-500/20 group-hover:scale-110 transition-all duration-300 group-hover:shadow-[0_0_30px_rgba(236,72,153,0.3)]">
+                      <Network className="w-8 h-8 text-pink-400 group-hover:animate-pulse" />
+                    </div>
+                    <CardTitle className="text-xl text-zinc-100 font-bold tracking-wide group-hover:text-pink-300 transition-colors">Schema Architect</CardTitle>
+                    <CardDescription className="text-zinc-400 text-sm leading-relaxed mt-4 group-hover:text-zinc-300 transition-colors">Design and auto-generate database schemas using an interactive ER diagram.</CardDescription>
                   </CardHeader>
                 </Card>
 
@@ -269,8 +349,8 @@ export default function SchemaChatPage() {
                     <div className="w-16 h-16 bg-violet-500/10 rounded-xl flex items-center justify-center mb-6 group-hover:bg-violet-500/20 group-hover:scale-110 transition-all duration-300 group-hover:shadow-[0_0_30px_rgba(139,92,246,0.3)]">
                       <SearchCode className="w-8 h-8 text-violet-400 group-hover:animate-pulse" />
                     </div>
-                    <CardTitle className="text-2xl text-zinc-100 font-bold tracking-wide group-hover:text-violet-300 transition-colors">Performance Analyzer</CardTitle>
-                    <CardDescription className="text-zinc-400 text-base leading-relaxed mt-4 group-hover:text-zinc-300 transition-colors">Connect to your database to automatically fetch slow-running queries and analyze bottlenecks.</CardDescription>
+                    <CardTitle className="text-xl text-zinc-100 font-bold tracking-wide group-hover:text-violet-300 transition-colors">DB Analyzer</CardTitle>
+                    <CardDescription className="text-zinc-400 text-sm leading-relaxed mt-4 group-hover:text-zinc-300 transition-colors">Fetch slow-running queries automatically and analyze active bottlenecks.</CardDescription>
                   </CardHeader>
                 </Card>
 
@@ -423,6 +503,64 @@ export default function SchemaChatPage() {
                         />
                      </div>
                   )}
+               </CardContent>
+            </Card>
+
+          </div>
+        )}
+
+        {/* --- VIEW: SCHEMA BUILDER --- */}
+        {view === "schema-builder" && (
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 animate-in fade-in slide-in-from-right-8 duration-500 flex-1 min-h-0">
+            
+            {/* Left Pane: DDL Input */}
+            <Card className="lg:col-span-1 bg-[#111113]/80 border-zinc-800/50 backdrop-blur-xl flex flex-col shadow-xl overflow-hidden h-full min-h-0">
+               <CardHeader className="border-b border-zinc-800/50 pb-4 bg-black/20 shrink-0">
+                 <CardTitle className="text-lg text-zinc-100 flex items-center gap-2">
+                   <Code2 className="w-5 h-5 text-pink-400" /> Schema Definitions (DDL)
+                 </CardTitle>
+               </CardHeader>
+               <CardContent className="p-0 flex-1 flex flex-col min-h-0">
+                  <Textarea 
+                     value={schemaDDL}
+                     onChange={(e) => setSchemaDDL(e.target.value)}
+                     placeholder={"CREATE TABLE users (\n  id INT PRIMARY KEY,\n  name VARCHAR\n);\n\nCREATE TABLE orders (\n  id INT PRIMARY KEY,\n  user_id INT,\n  FOREIGN KEY (user_id) REFERENCES users\n);"}
+                     className="flex-1 w-full h-full resize-none bg-transparent border-0 focus-visible:ring-0 text-zinc-200 font-mono text-sm p-4 rounded-none min-h-0"
+                  />
+                  <div className="p-4 border-t border-zinc-800/50 bg-black/20 shrink-0">
+                     <Button 
+                       onClick={generateDiagram} 
+                       disabled={!schemaDDL.trim()}
+                       className="w-full bg-pink-600 hover:bg-pink-500 text-white font-medium"
+                     >
+                       <Play className="w-4 h-4 mr-2" /> Visualize ER Diagram
+                     </Button>
+                  </div>
+               </CardContent>
+            </Card>
+
+            {/* Right Pane: ER Diagram */}
+            <Card className="lg:col-span-2 bg-[#111113]/80 border-zinc-800/50 backdrop-blur-xl flex flex-col shadow-xl overflow-hidden h-full min-h-0">
+               <CardHeader className="border-b border-zinc-800/50 pb-4 bg-black/20 shrink-0">
+                 <CardTitle className="text-lg text-zinc-100 flex items-center gap-2">
+                   <Network className="w-5 h-5 text-pink-400" /> Interactive ER Diagram
+                 </CardTitle>
+               </CardHeader>
+               <CardContent className="p-0 flex-1 min-h-0 bg-[#0a0a0c]">
+                 <div className="w-full h-full">
+                   <ReactFlow
+                     nodes={nodes}
+                     edges={edges}
+                     onNodesChange={onNodesChange}
+                     onEdgesChange={onEdgesChange}
+                     fitView
+                     proOptions={{ hideAttribution: true }}
+                     colorMode="dark"
+                   >
+                     <Background color="#333" gap={16} />
+                     <Controls />
+                   </ReactFlow>
+                 </div>
                </CardContent>
             </Card>
 
