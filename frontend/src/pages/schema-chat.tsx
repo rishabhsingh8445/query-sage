@@ -32,6 +32,19 @@ export default function SchemaChatPage() {
   const [isConnecting, setIsConnecting] = useState(false);
   
   useEffect(() => {
+    // Handle redirect from login
+    const params = new URLSearchParams(window.location.search);
+    const viewParam = params.get("view") as ViewState | null;
+    
+    if (viewParam && (viewParam === "sql-optimizer" || viewParam === "db-analyzer")) {
+      if (view !== viewParam) {
+        setView(viewParam);
+      }
+      setIntroStep(2);
+      window.history.replaceState({}, document.title, window.location.pathname);
+      return;
+    }
+
     // Only play intro when entering the dashboard
     if (view !== "dashboard") return;
     
@@ -209,7 +222,7 @@ export default function SchemaChatPage() {
                 <Card 
                   className="card-3d bg-[#111113]/80 border-zinc-800/50 backdrop-blur-xl hover:border-indigo-500/50 hover:bg-zinc-900/80 cursor-pointer group" 
                   onClick={() => {
-                    if (!isSignedIn) clerk.openSignIn();
+                    if (!isSignedIn) clerk.openSignIn({ forceRedirectUrl: `${window.location.pathname}?view=sql-optimizer` });
                     else setView("sql-optimizer");
                   }}
                 >
@@ -225,7 +238,7 @@ export default function SchemaChatPage() {
                 <Card 
                   className="card-3d bg-[#111113]/80 border-zinc-800/50 backdrop-blur-xl hover:border-violet-500/50 hover:bg-zinc-900/80 cursor-pointer group" 
                   onClick={() => {
-                    if (!isSignedIn) clerk.openSignIn();
+                    if (!isSignedIn) clerk.openSignIn({ forceRedirectUrl: `${window.location.pathname}?view=db-analyzer` });
                     else setView("db-analyzer");
                   }}
                 >
