@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from "react";
-import { Send, Database, Loader2, Sparkles, Zap, Bot, Mic, Fingerprint, Activity, Cpu, Network } from "lucide-react";
+import { Send, Mic, Fingerprint, Activity, Network, Cpu } from "lucide-react";
 import { useAuth, SignInButton } from "@clerk/react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -13,17 +13,6 @@ type ChatMessage = {
   isAuthWarning?: boolean;
 };
 
-// JARVIS Boot Sequence Data
-const BOOT_LOGS = [
-  "OS: J.A.R.V.I.S. v3.4.1 [ONLINE]",
-  "KERNEL: MICRO-CORE INITIATED",
-  "NEURAL_NET: SYNAPSES LINKED",
-  "SECURITY: MAINFRAME ENCRYPTED",
-  "UPLINK: SATELLITE 4 ESTABLISHED",
-  "MODULES: NLP, SQL, ML DEPLOYED",
-  "STATUS: AWAITING COMMAND..."
-];
-
 export default function SchemaChatPage() {
   const { chatMessages, setChatMessages, currentThreadId, setCurrentThreadId } = useAppStore();
   const messages = chatMessages || [];
@@ -32,63 +21,60 @@ export default function SchemaChatPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [isListening, setIsListening] = useState(false);
   
-  // Animation States
-  const [bootPhase, setBootPhase] = useState<"init" | "diagnostics" | "ready">("diagnostics");
-  const [bootLogs, setBootLogs] = useState<string[]>([]);
+  // Animation States for Cinematic Intro
+  const [introStep, setIntroStep] = useState(0); 
+  const [introText, setIntroText] = useState("");
   const [randomHex, setRandomHex] = useState<string>("0x0000");
-  const [welcomeText, setWelcomeText] = useState("");
   
   const scrollRef = useRef<HTMLDivElement>(null);
   const { getToken, isSignedIn } = useAuth();
   const clearChat = useAppStore((state) => state.clearChat);
 
-  // Cinematic Boot Sequence
+  // Cinematic Intro Sequence
   useEffect(() => {
-    clearChat();
-    setBootPhase("diagnostics");
-    
-    // Rapidly generate boot logs
-    let logIndex = 0;
-    const logInterval = setInterval(() => {
-      if (logIndex < BOOT_LOGS.length) {
-        setBootLogs(prev => [...prev, BOOT_LOGS[logIndex]]);
-        logIndex++;
-      } else {
-        clearInterval(logInterval);
-        setTimeout(() => setBootPhase("ready"), 1500); // Dramatic pause before UI
-      }
-    }, 300);
+    clearChat(); // Always wipe on fresh load
+    setIntroStep(1);
 
-    // Random hex generator for background effect
+    const sequence = async () => {
+      // Step 1: "Hello."
+      await typeText("Hello, Sir.");
+      await new Promise(r => setTimeout(r, 1000));
+      
+      // Step 2: Main Intro
+      setIntroStep(2);
+      await typeText("I am QuerySage. I can optimize your SQL queries, analyze your database schema, and detect vulnerabilities.");
+      await new Promise(r => setTimeout(r, 1500));
+
+      // Step 3: Awaiting
+      setIntroStep(3);
+      if (isSignedIn) {
+        await typeText("How may I assist you today?");
+      } else {
+        await typeText("Unidentified biological signature. Please verify your identity to access the mainframe.");
+      }
+      
+      setIntroStep(4); // Input box appears
+    };
+
+    sequence();
+
+    // Random hex generator for background HUD
     const hexInterval = setInterval(() => {
-      setRandomHex("0x" + Math.floor(Math.random()*16777215).toString(16).toUpperCase());
+      setRandomHex("0x" + Math.floor(Math.random()*16777215).toString(16).toUpperCase().padStart(6, '0'));
     }, 100);
 
-    return () => {
-      clearInterval(logInterval);
-      clearInterval(hexInterval);
-    };
-  }, []);
+    return () => clearInterval(hexInterval);
+  }, [isSignedIn]);
 
-  // Typewriter effect for Welcome Text
-  useEffect(() => {
-    if (bootPhase === "ready") {
-      const fullText = isSignedIn ? "Welcome to QuerySage." : "Identify Yourself.";
-      let curr = "";
-      let i = 0;
-      const typeInterval = setInterval(() => {
-        if (i < fullText.length) {
-          curr += fullText[i];
-          setWelcomeText(curr);
-          i++;
-        } else {
-          clearInterval(typeInterval);
-        }
-      }, 50);
-      return () => clearInterval(typeInterval);
+  const typeText = async (text: string) => {
+    setIntroText("");
+    let curr = "";
+    for (let i = 0; i < text.length; i++) {
+      curr += text[i];
+      setIntroText(curr);
+      await new Promise(r => setTimeout(r, 30)); // 30ms per character
     }
-    return undefined;
-  }, [bootPhase, isSignedIn]);
+  };
 
   // Auto-scroll
   useEffect(() => {
@@ -98,7 +84,7 @@ export default function SchemaChatPage() {
         scrollElement.scrollTop = scrollElement.scrollHeight;
       }, 100);
     }
-  }, [messages, isListening, bootPhase]);
+  }, [messages, isListening, introStep]);
 
   const toggleListening = () => {
     if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
@@ -145,7 +131,7 @@ export default function SchemaChatPage() {
         { role: "user", content: userMessage },
         { 
           role: "assistant", 
-          content: "⚠️ **WARNING:** Unidentified biological signature detected.\n\nAccess to Database Mainframe denied. Please verify your identity to proceed.",
+          content: "⚠️ **ACCESS DENIED:** You must authenticate to interact with the database core.",
           isAuthWarning: true 
         }
       ]);
@@ -236,176 +222,127 @@ export default function SchemaChatPage() {
     }
   };
 
-  // Render Cinematic Boot Phase
-  if (bootPhase === "diagnostics") {
-    return (
-      <div className="h-full flex flex-col items-center justify-center w-full bg-[#030712] relative overflow-hidden text-cyan-500">
-         {/* Background Grid */}
-         <div className="absolute inset-0 bg-[linear-gradient(to_right,#06b6d41a_1px,transparent_1px),linear-gradient(to_bottom,#06b6d41a_1px,transparent_1px)] bg-[size:4rem_4rem] [mask-image:radial-gradient(ellipse_60%_60%_at_50%_50%,#000_70%,transparent_100%)]"></div>
-         
-         <div className="absolute inset-0 flex items-center justify-center opacity-20">
-           <div className="w-[800px] h-[800px] border border-cyan-500/20 rounded-full animate-[spin_20s_linear_infinite]"></div>
-           <div className="absolute w-[600px] h-[600px] border border-cyan-400/20 rounded-full animate-[spin_15s_linear_infinite_reverse]"></div>
-         </div>
-
-         <div className="relative z-10 flex flex-col md:flex-row items-center gap-12 max-w-4xl w-full px-8">
-           {/* Arc Reactor Core Animation */}
-           <div className="relative flex items-center justify-center w-48 h-48 md:w-64 md:h-64 shrink-0">
-             <div className="absolute inset-0 rounded-full border-4 border-t-cyan-400 border-r-transparent border-b-cyan-600 border-l-transparent animate-spin duration-700 shadow-[0_0_30px_rgba(34,211,238,0.5)]"></div>
-             <div className="absolute inset-4 rounded-full border-2 border-dashed border-cyan-300/50 animate-[spin_3s_linear_infinite_reverse]"></div>
-             <div className="absolute inset-10 rounded-full border border-cyan-500/30 animate-[ping_2s_cubic-bezier(0,0,0.2,1)_infinite]"></div>
-             <div className="absolute inset-14 bg-cyan-500/20 rounded-full backdrop-blur-xl flex items-center justify-center shadow-[inset_0_0_20px_rgba(34,211,238,0.8)]">
-               <Bot className="w-12 h-12 text-cyan-100 animate-pulse" />
-             </div>
-           </div>
-
-           {/* Terminal Logs */}
-           <div className="flex-1 font-mono text-sm md:text-base text-cyan-400/90 shadow-2xl bg-black/40 border border-cyan-500/20 p-6 rounded-lg backdrop-blur-md w-full">
-             <div className="flex justify-between items-center mb-4 border-b border-cyan-500/30 pb-2">
-               <span className="text-cyan-200 font-bold">JARVIS // TERMINAL</span>
-               <span className="text-cyan-600 text-xs">{randomHex}</span>
-             </div>
-             {bootLogs.map((line, idx) => (
-               <div key={idx} className="mb-2 animate-in fade-in slide-in-from-left-4 duration-200">
-                 {line}
-               </div>
-             ))}
-             <div className="w-3 h-5 bg-cyan-400 animate-pulse mt-2"></div>
-           </div>
-         </div>
-      </div>
-    );
-  }
-
-  // JARVIS Main UI
-  const themeColor = !isSignedIn ? "red" : isListening ? "yellow" : "cyan";
+  // JARVIS Theme Colors
+  const coreColor = !isSignedIn ? "red" : isListening ? "yellow" : "cyan";
 
   return (
-    <div className="h-full flex w-full bg-[#030712] relative overflow-hidden font-sans">
+    <div className="h-full flex w-full bg-[#02040a] relative overflow-hidden font-sans text-cyan-50">
       
-      {/* Background Holographic Grid */}
-      <div className="absolute inset-0 bg-[linear-gradient(to_right,#06b6d405_1px,transparent_1px),linear-gradient(to_bottom,#06b6d405_1px,transparent_1px)] bg-[size:4rem_4rem] [mask-image:radial-gradient(ellipse_80%_80%_at_50%_50%,#000_40%,transparent_100%)] pointer-events-none z-0"></div>
+      {/* HUD Holographic Grid */}
+      <div className="absolute inset-0 bg-[linear-gradient(to_right,#06b6d408_1px,transparent_1px),linear-gradient(to_bottom,#06b6d408_1px,transparent_1px)] bg-[size:3rem_3rem] [mask-image:radial-gradient(ellipse_70%_70%_at_50%_50%,#000_30%,transparent_100%)] pointer-events-none z-0"></div>
 
       {/* Live HUD Elements (Corners) */}
-      <div className="absolute top-4 left-4 z-0 pointer-events-none text-[10px] text-cyan-500/60 font-mono tracking-widest hidden md:block">
-        <div className="flex items-center gap-2 mb-1"><Activity className="w-3 h-3 text-cyan-400"/> SYS.LOAD: [||||||....]</div>
-        <div className="flex items-center gap-2 mb-1"><Network className="w-3 h-3 text-cyan-400"/> NET.UPLINK: SECURE</div>
-        <div className="flex items-center gap-2"><Cpu className="w-3 h-3 text-cyan-400"/> MEM.CORE: {randomHex}</div>
+      <div className="absolute top-6 left-6 z-0 pointer-events-none text-[10px] text-cyan-500/50 font-mono tracking-widest hidden md:block">
+        <div className="flex items-center gap-2 mb-1"><Activity className="w-3 h-3 text-cyan-500/80"/> SYS.LOAD: [||||||....]</div>
+        <div className="flex items-center gap-2 mb-1"><Network className="w-3 h-3 text-cyan-500/80"/> NET.UPLINK: SECURE</div>
+        <div className="flex items-center gap-2"><Cpu className="w-3 h-3 text-cyan-500/80"/> MEM.CORE: {randomHex}</div>
       </div>
-      <div className="absolute top-4 right-24 z-0 pointer-events-none text-[10px] font-mono tracking-widest text-right hidden md:block">
-        <div className={`mb-1 ${!isSignedIn ? "text-red-500 font-bold animate-pulse" : "text-green-500/80"}`}>THREAT_LVL: {!isSignedIn ? "CRITICAL" : "ZERO"}</div>
-        <div className="text-cyan-500/60 mb-1">LATENCY: {Math.floor(Math.random() * 20 + 10)}ms</div>
-        <div className="text-cyan-500/60">BIOMETRIC: {!isSignedIn ? "UNVERIFIED" : "VERIFIED"}</div>
+      <div className="absolute top-6 right-24 z-0 pointer-events-none text-[10px] font-mono tracking-widest text-right hidden md:block">
+        <div className={`mb-1 ${!isSignedIn ? "text-red-500 font-bold animate-pulse" : "text-cyan-500/50"}`}>THREAT_LVL: {!isSignedIn ? "CRITICAL" : "ZERO"}</div>
+        <div className="text-cyan-500/50 mb-1">LATENCY: {Math.floor(Math.random() * 20 + 10)}ms</div>
+        <div className="text-cyan-500/50">BIOMETRIC: {!isSignedIn ? "UNVERIFIED" : "VERIFIED"}</div>
       </div>
 
-      {/* Dynamic Ambient Core Glow */}
+      {/* Dynamic Ambient Glow */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none z-0 flex items-center justify-center">
-        <div className={`w-[800px] h-[800px] rounded-full mix-blend-screen filter blur-[150px] opacity-30 transition-colors duration-1000 ${
-          !isSignedIn ? 'bg-red-600' : isListening ? 'bg-yellow-500' : 'bg-cyan-600'
+        <div className={`w-[900px] h-[900px] rounded-full mix-blend-screen filter blur-[180px] opacity-[0.15] transition-colors duration-1000 ${
+          !isSignedIn ? 'bg-red-600' : isListening ? 'bg-yellow-500' : 'bg-cyan-500'
         } ${isListening ? 'animate-pulse' : ''}`}></div>
       </div>
 
-      {/* Main Chat Area */}
+      {/* Main Content Area */}
       <div className="flex-1 flex flex-col min-h-0 relative z-10 w-full pt-16">
         
         <div className="flex-1 w-full px-4 md:px-8 max-w-5xl mx-auto overflow-y-auto custom-scrollbar" ref={scrollRef}>
             {messages.length === 0 ? (
-              <div className="h-full min-h-[70vh] flex flex-col items-center justify-center animate-in zoom-in duration-1000">
+              
+              /* Cinematic AI Core Empty State */
+              <div className="h-full min-h-[75vh] flex flex-col items-center justify-center animate-in fade-in duration-1000">
                 
-                {/* Central Rotating HUD Ring */}
-                <div className="relative flex items-center justify-center w-64 h-64 mb-8">
-                   {/* Outer Scanner Ring */}
-                   <div className={`absolute inset-0 rounded-full border border-t-[3px] border-l-transparent border-r-transparent border-b-transparent animate-spin duration-1000 transition-colors ${!isSignedIn ? 'border-t-red-500' : isListening ? 'border-t-yellow-400' : 'border-t-cyan-400'}`} style={{ animationDuration: isListening ? '1s' : '4s' }}></div>
+                {/* Central Arc Reactor */}
+                <div className="relative flex items-center justify-center w-56 h-56 md:w-80 md:h-80 mb-16 shrink-0 transition-transform duration-700 hover:scale-105">
+                   {/* Outer Scanning Ring */}
+                   <div className={`absolute inset-0 rounded-full border-t-2 border-l-2 border-transparent animate-spin duration-1000 ${!isSignedIn ? 'border-t-red-500 border-l-red-500/20' : isListening ? 'border-t-yellow-400 border-l-yellow-400/20' : 'border-t-cyan-400 border-l-cyan-400/20'}`} style={{ animationDuration: isListening ? '1s' : '3s' }}></div>
                    
-                   {/* Inner Dashed Ring */}
-                   <div className={`absolute inset-4 rounded-full border-2 border-dashed opacity-40 animate-[spin_reverse_linear_infinite] transition-colors ${!isSignedIn ? 'border-red-400' : isListening ? 'border-yellow-300' : 'border-cyan-300'}`} style={{ animationDuration: '8s' }}></div>
+                   {/* Middle Tech Ring */}
+                   <div className={`absolute inset-4 rounded-full border-2 border-dashed opacity-30 animate-[spin_reverse_linear_infinite] ${!isSignedIn ? 'border-red-400' : isListening ? 'border-yellow-300' : 'border-cyan-300'}`} style={{ animationDuration: '15s' }}></div>
                    
-                   {/* Core Pulse */}
-                   <div className={`absolute inset-12 rounded-full backdrop-blur-xl flex items-center justify-center shadow-[0_0_60px_rgba(0,0,0,0.5)] transition-colors duration-500 ${!isSignedIn ? 'bg-red-500/10 shadow-red-500/20' : isListening ? 'bg-yellow-500/20 shadow-yellow-500/30 scale-110' : 'bg-cyan-500/10 shadow-cyan-500/20'}`}>
-                      {isListening ? (
-                        <div className="flex items-center gap-1">
-                          <div className="w-1 h-8 bg-yellow-400 animate-[bounce_0.8s_infinite]"></div>
-                          <div className="w-1 h-12 bg-yellow-400 animate-[bounce_0.6s_infinite_0.1s]"></div>
-                          <div className="w-1 h-8 bg-yellow-400 animate-[bounce_0.8s_infinite_0.2s]"></div>
-                        </div>
-                      ) : (
-                        <Bot className={`w-16 h-16 drop-shadow-[0_0_15px_rgba(255,255,255,0.8)] transition-colors ${!isSignedIn ? 'text-red-400' : 'text-cyan-100'}`} />
-                      )}
-                      {isSignedIn && !isListening && <Sparkles className="absolute -top-2 -right-2 w-6 h-6 text-cyan-300 animate-pulse" />}
+                   {/* Inner Solid Ring */}
+                   <div className={`absolute inset-10 rounded-full border border-opacity-20 animate-[spin_linear_infinite] ${!isSignedIn ? 'border-red-400' : isListening ? 'border-yellow-300' : 'border-cyan-300'}`} style={{ animationDuration: '8s' }}></div>
+                   
+                   {/* Center Glowing Core */}
+                   <div className={`absolute inset-16 rounded-full backdrop-blur-md flex items-center justify-center shadow-[0_0_80px_rgba(0,0,0,0.8)] transition-all duration-700 ${!isSignedIn ? 'bg-red-500/10 shadow-red-500/30' : isListening ? 'bg-yellow-500/10 shadow-yellow-500/40 scale-110' : 'bg-cyan-500/10 shadow-cyan-500/30'}`}>
+                      {/* Pulse Effect */}
+                      <div className={`absolute inset-0 rounded-full animate-ping opacity-20 ${!isSignedIn ? 'bg-red-400' : isListening ? 'bg-yellow-400' : 'bg-cyan-400'}`} style={{ animationDuration: '3s' }}></div>
                    </div>
                 </div>
                 
-                {/* Typewriter Text */}
-                <h1 className={`text-4xl md:text-5xl font-extrabold tracking-tight mb-4 text-center bg-gradient-to-br bg-clip-text text-transparent drop-shadow-[0_0_15px_rgba(255,255,255,0.3)] h-16 ${!isSignedIn ? 'from-red-400 to-orange-500' : 'from-cyan-100 to-cyan-500'}`}>
-                  {welcomeText}<span className="animate-pulse">|</span>
-                </h1>
-                
-                <p className="text-lg md:text-xl text-muted-foreground/80 text-center max-w-2xl mb-12 font-medium">
-                  {isSignedIn ? (
-                    <>Systems nominal. Neural net linked. <br/><span className="text-cyan-400/80">Awaiting voice or text input...</span></>
-                  ) : (
-                    <>Mainframe locked. Unidentified signature. <br/><span className="text-red-400/80">Biometric verification required.</span></>
-                  )}
-                </p>
+                {/* Cinematic Typewriter Text */}
+                <div className="min-h-[120px] flex flex-col items-center justify-center text-center">
+                  <h1 className={`text-3xl md:text-4xl lg:text-5xl font-light tracking-wide leading-relaxed max-w-4xl mx-auto drop-shadow-[0_0_25px_rgba(255,255,255,0.4)] ${!isSignedIn ? 'text-red-100' : 'text-cyan-50'}`}>
+                    {introText}<span className="animate-pulse font-bold opacity-70">|</span>
+                  </h1>
+                </div>
 
-                {isSignedIn ? (
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 w-full max-w-3xl animate-in fade-in slide-in-from-bottom-4 duration-1000 delay-500 fill-mode-both">
-                    <Button variant="outline" className="justify-start h-auto p-5 bg-cyan-950/20 hover:bg-cyan-900/40 border-cyan-500/20 hover:border-cyan-400/40 transition-all duration-300 flex-col items-start group rounded-xl" onClick={() => setInput("Can you find any slow queries affecting performance?")}>
-                      <span className="font-semibold flex items-center text-cyan-100 group-hover:text-white text-base"><Zap className="w-5 h-5 mr-3 text-cyan-400"/> System Diagnostics</span>
-                      <span className="text-sm text-cyan-500/60 mt-1.5 ml-8">Analyze query latency</span>
-                    </Button>
-                    <Button variant="outline" className="justify-start h-auto p-5 bg-cyan-950/20 hover:bg-cyan-900/40 border-cyan-500/20 hover:border-cyan-400/40 transition-all duration-300 flex-col items-start group rounded-xl" onClick={() => setInput("Analyze my schema and suggest missing indexes.")}>
-                      <span className="font-semibold flex items-center text-cyan-100 group-hover:text-white text-base"><Database className="w-5 h-5 mr-3 text-cyan-400"/> Database Scans</span>
-                      <span className="text-sm text-cyan-500/60 mt-1.5 ml-8">Detect structural anomalies</span>
-                    </Button>
-                  </div>
-                ) : (
-                   <SignInButton mode="modal" forceRedirectUrl="/">
-                      <Button className="bg-red-600 hover:bg-red-500 text-white border-none shadow-[0_0_30px_rgba(220,38,38,0.4)] gap-3 rounded-full px-8 py-6 text-lg animate-pulse hover:animate-none transition-all hover:scale-105">
-                        <Fingerprint className="w-6 h-6" />
-                        OVERRIDE SECURITY (LOGIN)
-                      </Button>
-                   </SignInButton>
+                {/* Login Button (Fades in if unauthenticated and text is done) */}
+                {!isSignedIn && introStep >= 4 && (
+                   <div className="mt-12 animate-in fade-in slide-in-from-bottom-4 duration-1000">
+                     <SignInButton mode="modal" forceRedirectUrl="/">
+                        <Button className="bg-transparent border border-red-500/50 hover:bg-red-500/10 text-red-400 hover:text-red-300 shadow-[0_0_20px_rgba(220,38,38,0.2)] gap-3 rounded-none px-10 py-6 text-sm tracking-[0.3em] font-mono uppercase transition-all">
+                          <Fingerprint className="w-5 h-5" />
+                          Initiate Override
+                        </Button>
+                     </SignInButton>
+                   </div>
                 )}
               </div>
+              
             ) : (
-              <div className="space-y-6 py-8 w-full max-w-4xl mx-auto">
+              
+              /* HUD Style Chat View (Not standard Chatbot bubbles) */
+              <div className="space-y-12 py-8 w-full max-w-5xl mx-auto mb-32">
                 {messages.map((msg: ChatMessage, idx: number) => (
-                  <div key={idx} className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
-                    <div className={`max-w-[85%] md:max-w-[80%] rounded-2xl px-6 py-4 text-[16px] leading-relaxed shadow-lg ${
-                        msg.role === "user"
-                          ? "bg-cyan-950/40 text-cyan-50 rounded-tr-sm border border-cyan-500/20 backdrop-blur-md"
-                          : msg.isAuthWarning 
-                            ? "bg-red-950/60 border border-red-500/40 text-red-100 rounded-tl-sm backdrop-blur-md"
-                            : "bg-black/40 text-cyan-50 rounded-tl-sm border border-cyan-500/10 backdrop-blur-sm"
-                      }`}>
-                      {msg.role === "user" ? (
-                        <div className="whitespace-pre-wrap font-medium">{msg.content}</div>
-                      ) : (
-                        <div className="prose prose-base md:prose-lg dark:prose-invert max-w-none prose-p:leading-loose prose-pre:bg-black/50 prose-pre:border prose-pre:border-cyan-500/20 prose-pre:rounded-xl prose-pre:shadow-[inset_0_0_15px_rgba(0,0,0,0.5)]">
-                          <ReactMarkdown>{msg.content}</ReactMarkdown>
-                          {msg.isAuthWarning && (
-                             <div className="mt-6">
-                               <SignInButton mode="modal" forceRedirectUrl="/">
-                                  <Button className="bg-red-600 hover:bg-red-500 text-white border-none shadow-[0_0_20px_rgba(220,38,38,0.4)] gap-2 rounded-full px-6">
-                                    <Fingerprint className="w-4 h-4" />
-                                    VERIFY IDENTITY
-                                  </Button>
-                               </SignInButton>
-                             </div>
-                          )}
-                        </div>
-                      )}
-                    </div>
+                  <div key={idx} className={`w-full flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
+                    
+                    {msg.role === "user" ? (
+                      /* User Query: Align Right, Minimalist HUD style */
+                      <div className="max-w-[75%] border-r-2 border-cyan-500/50 pr-6 text-right">
+                         <div className="text-[10px] text-cyan-500/60 font-mono tracking-widest mb-2 uppercase">Command Input</div>
+                         <div className="text-lg md:text-xl font-light text-cyan-50 whitespace-pre-wrap tracking-wide leading-relaxed">
+                           {msg.content}
+                         </div>
+                      </div>
+                    ) : (
+                      /* AI Response: Align Left, Holographic Data Block */
+                      <div className="w-full max-w-[90%] md:max-w-[85%] border-l-2 border-cyan-400/60 pl-6 bg-gradient-to-r from-cyan-950/30 to-transparent py-4 rounded-r-3xl">
+                         <div className="text-[10px] text-cyan-400/80 font-mono tracking-widest mb-3 uppercase flex items-center gap-2">
+                           <Activity className="w-3 h-3 animate-pulse" /> System Output
+                         </div>
+                         <div className={`prose prose-base md:prose-lg dark:prose-invert max-w-none prose-p:leading-loose prose-pre:bg-black/60 prose-pre:border prose-pre:border-cyan-500/20 prose-pre:rounded-none prose-pre:shadow-[inset_0_0_20px_rgba(0,0,0,0.8)] font-light tracking-wide ${msg.isAuthWarning ? 'text-red-200' : 'text-cyan-50'}`}>
+                           <ReactMarkdown>{msg.content}</ReactMarkdown>
+                           {msg.isAuthWarning && (
+                              <div className="mt-8">
+                                <SignInButton mode="modal" forceRedirectUrl="/">
+                                   <Button className="bg-red-950/40 border border-red-500/40 hover:bg-red-900/60 text-red-300 font-mono uppercase tracking-widest text-xs rounded-none px-6 shadow-[0_0_15px_rgba(220,38,38,0.2)]">
+                                     Verify Credentials
+                                   </Button>
+                                </SignInButton>
+                              </div>
+                           )}
+                         </div>
+                      </div>
+                    )}
+
                   </div>
                 ))}
+                
                 {isLoading && messages[messages.length - 1]?.role === "user" && (
-                  <div className="flex justify-start pl-4 animate-in fade-in duration-500">
-                    <div className="bg-black/40 border border-cyan-500/20 rounded-full px-6 py-4 flex items-center gap-2 backdrop-blur-md">
-                      <div className="text-cyan-400 font-mono text-xs tracking-widest mr-2">PROCESSING</div>
-                      <div className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse"></div>
-                      <div className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse delay-75"></div>
-                      <div className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse delay-150"></div>
+                  <div className="w-full flex justify-start">
+                    <div className="border-l-2 border-cyan-500/50 pl-6 py-2">
+                      <div className="text-cyan-400 font-mono text-xs tracking-[0.2em] flex items-center gap-3">
+                        <div className="w-4 h-4 border-2 border-cyan-500 border-t-transparent rounded-full animate-spin"></div>
+                        PROCESSING DATA...
+                      </div>
                     </div>
                   </div>
                 )}
@@ -413,59 +350,51 @@ export default function SchemaChatPage() {
             )}
         </div>
         
-        {/* Holographic Input Console */}
-        <div className="w-full max-w-4xl mx-auto px-4 md:px-8 pb-8 pt-4 shrink-0 z-20">
-            <form onSubmit={(e) => { e.preventDefault(); handleSend(); }} className="relative w-full group flex items-center">
-              
-              {/* Outer Glow */}
-              <div className={`absolute -inset-1 rounded-2xl blur opacity-30 transition duration-500 ${!isSignedIn ? 'bg-red-500' : isListening ? 'bg-yellow-400' : 'bg-cyan-500'}`}></div>
-              
-              <div className={`relative flex w-full bg-black/60 backdrop-blur-xl border rounded-2xl overflow-hidden transition-colors duration-300 ${!isSignedIn ? 'border-red-500/30' : isListening ? 'border-yellow-500/50 shadow-[0_0_30px_rgba(234,179,8,0.2)]' : 'border-cyan-500/30'}`}>
+        {/* Holographic Input Console (Fades in only when intro is done, or if already chatting) */}
+        {(messages.length > 0 || introStep >= 4) && (
+          <div className="w-full max-w-3xl mx-auto px-4 md:px-8 pb-8 pt-4 shrink-0 z-20 animate-in fade-in slide-in-from-bottom-8 duration-1000">
+              <form onSubmit={(e) => { e.preventDefault(); handleSend(); }} className="relative w-full group flex items-center">
                 
-                {/* Voice Input Button */}
-                <div className="flex items-center justify-center pl-2">
-                   <Button
-                     type="button"
-                     onClick={toggleListening}
-                     variant="ghost"
-                     size="icon"
-                     className={`rounded-full h-12 w-12 transition-all ${isListening ? 'bg-yellow-500/20 text-yellow-400 animate-pulse' : 'text-cyan-500/50 hover:text-cyan-400 hover:bg-cyan-900/30'}`}
-                   >
-                     <Mic className="w-6 h-6" />
-                   </Button>
+                <div className={`relative flex w-full bg-black/40 backdrop-blur-2xl border-b-2 overflow-hidden transition-all duration-300 ${!isSignedIn ? 'border-red-500/50' : isListening ? 'border-yellow-400' : 'border-cyan-500/50'} focus-within:border-cyan-400 focus-within:bg-black/60`}>
+                  
+                  {/* Voice Input Button */}
+                  <div className="flex items-center justify-center pl-4">
+                     <Button
+                       type="button"
+                       onClick={toggleListening}
+                       variant="ghost"
+                       size="icon"
+                       className={`rounded-none h-12 w-12 transition-all ${isListening ? 'text-yellow-400 animate-pulse' : 'text-cyan-500/50 hover:text-cyan-400'}`}
+                     >
+                       <Mic className="w-5 h-5" />
+                     </Button>
+                  </div>
+
+                  <Input
+                    placeholder={isListening ? "Acoustic sensor active..." : "Enter system command..."}
+                    value={input}
+                    onChange={(e) => setInput(e.target.value)}
+                    disabled={isLoading}
+                    className="relative w-full h-14 border-none bg-transparent focus-visible:ring-0 text-lg md:text-xl text-cyan-50 placeholder:text-cyan-500/30 font-light tracking-wide rounded-none"
+                  />
+
+                  {/* Send Button */}
+                  <div className="flex items-center justify-center pr-4">
+                    <Button 
+                      id="jarvis-send-btn"
+                      type="submit" 
+                      disabled={!input.trim() || isLoading}
+                      size="icon"
+                      variant="ghost"
+                      className={`rounded-none h-12 w-12 transition-all disabled:opacity-20 ${!isSignedIn ? 'text-red-500 hover:text-red-400' : isListening ? 'text-yellow-400' : 'text-cyan-500 hover:text-cyan-300 hover:scale-110'}`}
+                    >
+                      <Send className="w-5 h-5" />
+                    </Button>
+                  </div>
                 </div>
-
-                <Input
-                  placeholder={isListening ? "Listening to audio feed..." : "Enter command query..."}
-                  value={input}
-                  onChange={(e) => setInput(e.target.value)}
-                  disabled={isLoading}
-                  className="relative w-full h-16 border-none bg-transparent focus-visible:ring-0 text-lg text-cyan-50 placeholder:text-cyan-500/40 font-medium"
-                />
-
-                {/* Send Button */}
-                <div className="flex items-center justify-center pr-2">
-                  <Button 
-                    id="jarvis-send-btn"
-                    type="submit" 
-                    disabled={!input.trim() || isLoading}
-                    size="icon"
-                    className={`rounded-xl h-12 w-12 text-black transition-all active:scale-95 disabled:opacity-30 ${!isSignedIn ? 'bg-red-500 hover:bg-red-400 shadow-[0_0_15px_rgba(239,68,68,0.3)]' : isListening ? 'bg-yellow-400 hover:bg-yellow-300' : 'bg-cyan-400 hover:bg-cyan-300 shadow-[0_0_15px_rgba(34,211,238,0.3)]'}`}
-                  >
-                    <Send className="w-5 h-5 ml-1" />
-                  </Button>
-                </div>
-              </div>
-            </form>
-
-            {/* Status Footer */}
-            <div className="text-center mt-3 flex items-center justify-center gap-3">
-              <div className={`w-1.5 h-1.5 rounded-full animate-pulse ${!isSignedIn ? 'bg-red-500' : isListening ? 'bg-yellow-400' : 'bg-cyan-500'}`}></div>
-              <span className={`text-[10px] tracking-[0.2em] font-mono uppercase ${!isSignedIn ? 'text-red-500/60' : isListening ? 'text-yellow-500/60' : 'text-cyan-500/60'}`}>
-                {isListening ? 'AUDIO FEED ACTIVE. SPEAK NOW.' : isSignedIn ? 'J.A.R.V.I.S. INTERFACE ONLINE.' : 'MAINFRAME ACCESS DENIED.'}
-              </span>
-            </div>
-        </div>
+              </form>
+          </div>
+        )}
       </div>
     </div>
   );
