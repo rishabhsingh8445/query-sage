@@ -1,19 +1,11 @@
 import os
 from langchain_groq import ChatGroq
-from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_core.messages import HumanMessage, AIMessage, SystemMessage
 
 def get_groq_llm(temperature=0.2):
     return ChatGroq(
         model="llama-3.3-70b-versatile",
         api_key=os.getenv("GROQ_API_KEY", "dummy-key"),
-        temperature=temperature
-    )
-
-def get_gemini_llm(temperature=0.2):
-    return ChatGoogleGenerativeAI(
-        model="gemini-1.5-flash-latest",
-        api_key=os.getenv("GEMINI_API_KEY", "dummy-key"),
         temperature=temperature
     )
 
@@ -40,7 +32,7 @@ Guidelines for answering:
             messages.append(AIMessage(content=msg.get("content")))
             
     full_response = ""
-    llm = get_gemini_llm()
+    llm = get_groq_llm()
     async for chunk in llm.astream(messages):
         if chunk.content:
             await on_chunk(chunk.content)
