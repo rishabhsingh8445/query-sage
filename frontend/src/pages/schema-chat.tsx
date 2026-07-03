@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useAuth, SignInButton } from "@clerk/react";
+import { useAuth, SignInButton, useClerk } from "@clerk/react";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
@@ -14,6 +14,7 @@ type ViewState = "dashboard" | "sql-optimizer" | "db-analyzer";
 
 export default function SchemaChatPage() {
   const { getToken, isSignedIn } = useAuth();
+  const clerk = useClerk();
   const [view, setView] = useState<ViewState>("dashboard");
   
   // Cinematic Intro State
@@ -203,25 +204,37 @@ export default function SchemaChatPage() {
 
             {/* Dashboard Tool Cards (Fade in after sequence) */}
             {introStep >= 2 && (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 w-full max-w-4xl animate-in fade-in slide-in-from-bottom-8 duration-1000 mt-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 w-full max-w-4xl animate-in fade-in slide-in-from-bottom-8 duration-1000 mt-4 card-3d-wrapper">
                 
-                <Card className="bg-[#111113]/80 border-zinc-800/50 backdrop-blur-xl hover:border-indigo-500/50 hover:bg-zinc-900/80 transition-all cursor-pointer group shadow-2xl" onClick={() => setView("sql-optimizer")}>
-                  <CardHeader>
-                    <div className="w-14 h-14 bg-indigo-500/10 rounded-xl flex items-center justify-center mb-4 group-hover:bg-indigo-500/20 group-hover:scale-110 transition-all">
-                      <Code2 className="w-7 h-7 text-indigo-400" />
+                <Card 
+                  className="card-3d bg-[#111113]/80 border-zinc-800/50 backdrop-blur-xl hover:border-indigo-500/50 hover:bg-zinc-900/80 cursor-pointer group" 
+                  onClick={() => {
+                    if (!isSignedIn) clerk.openSignIn();
+                    else setView("sql-optimizer");
+                  }}
+                >
+                  <CardHeader className="p-8">
+                    <div className="w-16 h-16 bg-indigo-500/10 rounded-xl flex items-center justify-center mb-6 group-hover:bg-indigo-500/20 group-hover:scale-110 transition-all duration-300 group-hover:shadow-[0_0_30px_rgba(99,102,241,0.3)]">
+                      <Code2 className="w-8 h-8 text-indigo-400 group-hover:animate-pulse" />
                     </div>
-                    <CardTitle className="text-xl text-zinc-100 font-semibold tracking-wide">SQL Optimizer Studio</CardTitle>
-                    <CardDescription className="text-zinc-400 text-base leading-relaxed mt-2">Paste raw SQL queries to automatically rewrite them for maximum performance and index utilization.</CardDescription>
+                    <CardTitle className="text-2xl text-zinc-100 font-bold tracking-wide group-hover:text-indigo-300 transition-colors">SQL Optimizer Studio</CardTitle>
+                    <CardDescription className="text-zinc-400 text-base leading-relaxed mt-4 group-hover:text-zinc-300 transition-colors">Paste raw SQL queries to automatically rewrite them for maximum performance and index utilization.</CardDescription>
                   </CardHeader>
                 </Card>
 
-                <Card className="bg-[#111113]/80 border-zinc-800/50 backdrop-blur-xl hover:border-violet-500/50 hover:bg-zinc-900/80 transition-all cursor-pointer group shadow-2xl" onClick={() => setView("db-analyzer")}>
-                  <CardHeader>
-                    <div className="w-14 h-14 bg-violet-500/10 rounded-xl flex items-center justify-center mb-4 group-hover:bg-violet-500/20 group-hover:scale-110 transition-all">
-                      <SearchCode className="w-7 h-7 text-violet-400" />
+                <Card 
+                  className="card-3d bg-[#111113]/80 border-zinc-800/50 backdrop-blur-xl hover:border-violet-500/50 hover:bg-zinc-900/80 cursor-pointer group" 
+                  onClick={() => {
+                    if (!isSignedIn) clerk.openSignIn();
+                    else setView("db-analyzer");
+                  }}
+                >
+                  <CardHeader className="p-8">
+                    <div className="w-16 h-16 bg-violet-500/10 rounded-xl flex items-center justify-center mb-6 group-hover:bg-violet-500/20 group-hover:scale-110 transition-all duration-300 group-hover:shadow-[0_0_30px_rgba(139,92,246,0.3)]">
+                      <SearchCode className="w-8 h-8 text-violet-400 group-hover:animate-pulse" />
                     </div>
-                    <CardTitle className="text-xl text-zinc-100 font-semibold tracking-wide">Performance Analyzer</CardTitle>
-                    <CardDescription className="text-zinc-400 text-base leading-relaxed mt-2">Connect to your database to automatically fetch slow-running queries and analyze bottlenecks.</CardDescription>
+                    <CardTitle className="text-2xl text-zinc-100 font-bold tracking-wide group-hover:text-violet-300 transition-colors">Performance Analyzer</CardTitle>
+                    <CardDescription className="text-zinc-400 text-base leading-relaxed mt-4 group-hover:text-zinc-300 transition-colors">Connect to your database to automatically fetch slow-running queries and analyze bottlenecks.</CardDescription>
                   </CardHeader>
                 </Card>
 
