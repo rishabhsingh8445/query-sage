@@ -47,6 +47,8 @@ export default function SchemaChatPage() {
   // DB Analyzer State
   const [isConnected, setIsConnected] = useState(false);
   const [isConnecting, setIsConnecting] = useState(false);
+  const [dbUri, setDbUri] = useState("");
+  const [telemetryData, setTelemetryData] = useState<any>(null);
   
   // Schema Builder State
   const [schemaDDL, setSchemaDDL] = useState("");
@@ -226,24 +228,55 @@ export default function SchemaChatPage() {
     }
   };
 
-  const mockConnectDb = async (e: React.FormEvent) => {
+  const connectDbTelemetry = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!isSignedIn) {
       toast.error("Please authenticate first.");
       return;
     }
-    setIsConnecting(true);
-    await new Promise(r => setTimeout(r, 1500));
-    setIsConnecting(false);
-    setIsConnected(true);
-    toast.success("Connected to database securely!");
-  };
+    if (!dbUri.trim()) return;
 
-  const MOCK_SLOW_QUERIES = [
-    { id: 1, query: "SELECT * FROM users u LEFT JOIN orders o ON u.id = o.user_id WHERE u.created_at < '2024-01-01'", duration: "1250ms", calls: 45 },
-    { id: 2, query: "SELECT count(*) FROM audit_logs WHERE action = 'LOGIN' GROUP BY user_id", duration: "840ms", calls: 120 },
-    { id: 3, query: "SELECT u.name, p.title FROM users u JOIN posts p ON u.id = p.author_id ORDER BY p.created_at DESC", duration: "610ms", calls: 350 },
-  ];
+    let host = "", port = 5432, database = "", username = "", password = "";
+    try {
+      const url = new URL(dbUri);
+      host = url.hostname;
+      port = parseInt(url.port) || 5432;
+      database = url.pathname.replace("/", "");
+      username = url.username;
+      password = url.password;
+    } catch (err) {
+      toast.error("Invalid database URI format.");
+      return;
+    }
+
+    setIsConnecting(true);
+    try {
+      const token = await getToken();
+      const baseUrl = import.meta.env.VITE_API_URL || "";
+      const apiUrl = `${baseUrl}/api/monitor/telemetry`;
+      
+      const res = await fetch(apiUrl, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({
+          db_type: "postgresql",
+          host, port, database, username, password
+        }),
+      });
+      
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed to fetch telemetry.");
+      
+      setTelemetryData(data);
+      setIsConnected(true);
+      toast.success("Connected to database securely!");
+    } catch (err: any) {
+      console.error(err);
+      toast.error(err.message || "Could not connect to the database.");
+    } finally {
+      setIsConnecting(false);
+    }
+  };
 
   return (
     <div className="h-full w-full bg-[#050505] relative overflow-hidden flex flex-col font-sans text-zinc-50">
@@ -575,47 +608,81 @@ export default function SchemaChatPage() {
                  <Card className="max-w-md mx-auto mt-12 bg-[#111113]/80 border-zinc-800/50 backdrop-blur-xl shadow-xl">
                     <CardHeader>
                        <CardTitle className="text-xl">Connect Database</CardTitle>
-                       <CardDescription>Enter credentials to fetch slow query logs securely.</CardDescription>
+                       <CardDescription>Enter credentials to fetch live database telemetry securely.</CardDescription>
                     </CardHeader>
                     <CardContent>
-                       <form onSubmit={mockConnectDb} className="space-y-4">
+                       <form onSubmit={connectDbTelemetry} className="space-y-4">
                           <div className="space-y-2">
                              <Label className="text-zinc-400">Database Connection URI</Label>
-                             <Input placeholder="postgresql://user:pass@host:5432/db" required className="bg-black/50 border-zinc-800 text-zinc-200 focus-visible:ring-indigo-500" />
+                             <Input value={dbUri} onChange={(e) => setDbUri(e.target.value)} placeholder="postgresql://user:pass@host:5432/db" required className="bg-black/50 border-zinc-800 text-zinc-200 focus-visible:ring-indigo-500 font-mono text-xs" />
                           </div>
-                          <Button type="submit" disabled={isConnecting} className="w-full bg-violet-600 hover:bg-violet-500 text-white mt-4">
-                             {isConnecting ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Connecting...</> : "Connect securely"}
+                          <Button type="submit" disabled={isConnecting || !dbUri.trim()} className="w-full bg-violet-600 hover:bg-violet-500 text-white mt-4">
+                             {isConnecting ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Fetching Telemetry...</> : "Connect securely"}
                           </Button>
                        </form>
                     </CardContent>
                  </Card>
               ) : (
-                 <Card className="bg-[#111113]/80 border-zinc-800/50 backdrop-blur-xl shadow-xl overflow-hidden flex flex-col h-full min-h-0">
-                    <CardHeader className="bg-black/20 border-b border-zinc-800/50 shrink-0">
-                       <CardTitle className="text-xl flex items-center gap-2">
-                          <Activity className="w-5 h-5 text-red-400" /> Top Slow Queries
-                       </CardTitle>
-                       <CardDescription>Automatically fetched from `pg_stat_statements`</CardDescription>
-                    </CardHeader>
-                    <CardContent className="p-0 flex-1 min-h-0 overflow-y-auto custom-scrollbar">
-                       <div className="w-full min-w-[600px]">
+                 <div className="flex flex-col gap-6 w-full h-full pb-6 custom-scrollbar overflow-y-auto">
+                    {/* Health Metrics Row */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 shrink-0">
+                       <Card className="bg-[#111113]/80 border-zinc-800/50 backdrop-blur-xl">
+                          <CardHeader className="py-4">
+                             <CardTitle className="text-sm text-zinc-400">Active Connections</CardTitle>
+                             <div className="text-3xl font-bold text-violet-400">{telemetryData?.active_connections || 0}</div>
+                          </CardHeader>
+                       </Card>
+                       <Card className="bg-[#111113]/80 border-zinc-800/50 backdrop-blur-xl">
+                          <CardHeader className="py-4">
+                             <CardTitle className="text-sm text-zinc-400">Cache Hit Ratio</CardTitle>
+                             <div className="text-3xl font-bold text-emerald-400">{telemetryData?.cache_hit_ratio?.toFixed(2) || 0}%</div>
+                          </CardHeader>
+                       </Card>
+                    </div>
+
+                    {/* Missing Indexes */}
+                    {telemetryData?.missing_indexes?.length > 0 && (
+                       <Card className="bg-[#111113]/80 border-rose-900/50 backdrop-blur-xl shrink-0">
+                          <CardHeader className="py-4 border-b border-rose-900/30 bg-rose-950/20">
+                             <CardTitle className="text-sm text-rose-400 flex items-center gap-2">⚠️ Missing Indexes Detected</CardTitle>
+                          </CardHeader>
+                          <CardContent className="p-4">
+                             <div className="flex flex-wrap gap-2">
+                                {telemetryData.missing_indexes.map((idx: any, i: number) => (
+                                   <div key={i} className="bg-rose-950/40 border border-rose-900/50 px-3 py-1 rounded-md text-xs text-rose-200">
+                                      Table: <span className="font-mono">{idx.table_name}</span> (Seq Scans: {idx.seq_scan})
+                                   </div>
+                                ))}
+                             </div>
+                          </CardContent>
+                       </Card>
+                    )}
+
+                    {/* Slow Queries */}
+                    <Card className="bg-[#111113]/80 border-zinc-800/50 backdrop-blur-xl shadow-xl flex-1 flex flex-col min-h-[400px]">
+                       <CardHeader className="bg-black/20 border-b border-zinc-800/50 shrink-0 py-4">
+                          <CardTitle className="text-base flex items-center gap-2">
+                             <Activity className="w-5 h-5 text-red-400" /> Top Slow Queries
+                          </CardTitle>
+                       </CardHeader>
+                       <CardContent className="p-0 flex-1 overflow-x-auto">
                           <Table>
                              <TableHeader className="bg-black/40">
                                 <TableRow className="hover:bg-transparent border-zinc-800/50">
                                    <TableHead className="text-zinc-400">Raw Query</TableHead>
-                                   <TableHead className="w-[150px] text-zinc-400">Avg Duration</TableHead>
-                                   <TableHead className="w-[100px] text-zinc-400">Calls</TableHead>
-                                   <TableHead className="w-[120px] text-right text-zinc-400">Action</TableHead>
+                                   <TableHead className="w-[120px] text-zinc-400">Avg (ms)</TableHead>
+                                   <TableHead className="w-[80px] text-zinc-400">Calls</TableHead>
+                                   <TableHead className="w-[100px] text-right text-zinc-400">Action</TableHead>
                                 </TableRow>
                              </TableHeader>
                              <TableBody>
-                                {MOCK_SLOW_QUERIES.map((q) => (
-                                   <TableRow key={q.id} className="border-zinc-800/50 hover:bg-zinc-800/30">
-                                      <TableCell className="font-mono text-xs text-zinc-300 max-w-md truncate py-4">{q.query}</TableCell>
-                                      <TableCell className="text-red-400 font-medium py-4">{q.duration}</TableCell>
-                                      <TableCell className="text-zinc-300 py-4">{q.calls}</TableCell>
-                                      <TableCell className="text-right py-4">
-                                         <Button size="sm" variant="outline" className="border-indigo-500/50 hover:bg-indigo-500/20 text-indigo-300 h-8 px-3" onClick={() => {
+                                {telemetryData?.queries?.length > 0 ? telemetryData.queries.map((q: any, i: number) => (
+                                   <TableRow key={i} className="border-zinc-800/50 hover:bg-zinc-800/30">
+                                      <TableCell className="font-mono text-xs text-zinc-300 max-w-md truncate py-3">{q.query}</TableCell>
+                                      <TableCell className="text-red-400 font-medium py-3">{q.execution_time_ms?.toFixed(2)}</TableCell>
+                                      <TableCell className="text-zinc-300 py-3">{q.calls}</TableCell>
+                                      <TableCell className="text-right py-3">
+                                         <Button size="sm" variant="outline" className="border-indigo-500/50 hover:bg-indigo-500/20 text-indigo-300 h-7 px-3 text-xs" onClick={() => {
                                             setRawSql(q.query);
                                             setView("sql-optimizer");
                                             setTimeout(() => handleOptimize(q.query), 300);
@@ -624,12 +691,16 @@ export default function SchemaChatPage() {
                                          </Button>
                                       </TableCell>
                                    </TableRow>
-                                ))}
+                                )) : (
+                                   <TableRow>
+                                      <TableCell colSpan={4} className="text-center py-8 text-zinc-500">No slow queries found. Your database is lightning fast! ⚡</TableCell>
+                                   </TableRow>
+                                )}
                              </TableBody>
                           </Table>
-                       </div>
-                    </CardContent>
-                 </Card>
+                       </CardContent>
+                    </Card>
+                 </div>
               )}
            </div>
         )}

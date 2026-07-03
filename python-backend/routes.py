@@ -390,6 +390,65 @@ async def slow_queries(creds: MonitorCredentials):
         return JSONResponse(status_code=400, content=result)
     return result
 
+@router.post("/monitor/telemetry")
+async def db_telemetry(creds: MonitorCredentials):
+    import asyncio
+    from sqlalchemy import create_engine, text
+    from fastapi.responses import JSONResponse
+
+    def fetch_telemetry():
+        try:
+            if creds.db_type.lower() == "postgresql":
+                db_url = f"postgresql://{creds.username}:{creds.password}@{creds.host}:{creds.port}/{creds.database}"
+                engine = create_engine(db_url, connect_args={"connect_timeout": 5})
+                with engine.connect() as conn:
+                    # 1. Slow Queries
+                    try:
+                        res = conn.execute(text("SELECT query, mean_exec_time as execution_time_ms, calls FROM pg_stat_statements WHERE query NOT ILIKE '%pg_stat_statements%' AND query NOT ILIKE '%pg_catalog%' ORDER BY mean_exec_time DESC LIMIT 10"))
+                        queries = [{"query": row[0], "execution_time_ms": float(row[1]), "calls": row[2]} for row in res if row[0]]
+                    except Exception:
+                        # fallback
+                        res = conn.execute(text("SELECT query, EXTRACT(EPOCH FROM (now() - query_start)) * 1000 as execution_time_ms FROM pg_stat_activity WHERE state = 'active' AND query NOT ILIKE '%pg_stat_activity%' AND query NOT ILIKE '%pg_catalog%' ORDER BY execution_time_ms DESC LIMIT 10"))
+                        queries = [{"query": row[0], "execution_time_ms": float(row[1] or 0), "calls": 1} for row in res if row[0]]
+
+                    # 2. Missing Indexes
+                    try:
+                        res = conn.execute(text("SELECT relname AS table_name, seq_scan, idx_scan FROM pg_stat_user_tables WHERE seq_scan > 0 ORDER BY seq_scan DESC LIMIT 5"))
+                        missing_indexes = [{"table_name": row[0], "seq_scan": row[1], "idx_scan": row[2]} for row in res]
+                    except Exception:
+                        missing_indexes = []
+
+                    # 3. Active Connections
+                    try:
+                        res = conn.execute(text("SELECT count(*) FROM pg_stat_activity WHERE state = 'active'"))
+                        active_connections = res.scalar() or 0
+                    except Exception:
+                        active_connections = 0
+
+                    # 4. Cache Hit Ratio
+                    try:
+                        res = conn.execute(text("SELECT sum(blks_hit) * 100 / nullif(sum(blks_hit + blks_read), 0) AS cache_hit_ratio FROM pg_stat_database"))
+                        cache_hit_ratio = float(res.scalar() or 0)
+                    except Exception:
+                        cache_hit_ratio = 0.0
+
+                    return {
+                        "queries": queries,
+                        "missing_indexes": missing_indexes,
+                        "active_connections": active_connections,
+                        "cache_hit_ratio": cache_hit_ratio
+                    }
+            else:
+                return {"error": "Telemetry currently only supports PostgreSQL."}
+        except Exception as e:
+            return {"error": f"Failed to connect: {str(e)}"}
+
+    loop = asyncio.get_event_loop()
+    result = await loop.run_in_executor(None, fetch_telemetry)
+    if "error" in result:
+        return JSONResponse(status_code=400, content=result)
+    return result
+
 @router.get("/intelligence/history")
 async def intelligence_history(user_id: str = Depends(get_current_user), db: Session = Depends(get_db)):
     recent = db.query(QueryHistory).filter(QueryHistory.user_id == user_id).order_by(desc(QueryHistory.created_at)).limit(50).all()
