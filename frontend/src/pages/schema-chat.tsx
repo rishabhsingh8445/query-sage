@@ -9,7 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ArrowLeft, Database, Code2, Zap, SearchCode, Loader2, Activity, Network, Play, Clock, Trash2 } from "lucide-react";
+import { ArrowLeft, Database, Code2, Zap, SearchCode, Loader2, Activity, Network, Play, Clock, Trash2, Bot, Brain, Cpu, Shield, FileCheck, CheckCircle2, CircleDot } from "lucide-react";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger, SheetDescription } from "@/components/ui/sheet";
 import { useGetHistory, useDeleteHistoryEntry, getGetHistoryQueryKey, useGetHistoryEntry } from "@workspace/api-client-react";
 import { format } from "date-fns";
@@ -35,6 +35,34 @@ export default function SchemaChatPage() {
   const [rawSql, setRawSql] = useState("");
   const [optimizedOutput, setOptimizedOutput] = useState("");
   const [isOptimizing, setIsOptimizing] = useState(false);
+
+  // Agent Activity State
+  type AgentStatus = "idle" | "working" | "done";
+  interface AgentState {
+    id: string;
+    name: string;
+    description: string;
+    icon: React.ReactNode;
+    status: AgentStatus;
+    color: string;
+  }
+  const [agents, setAgents] = useState<AgentState[]>([
+    { id: "parser", name: "Query Parser", description: "Analyzing SQL syntax & structure", icon: <SearchCode className="w-5 h-5" />, status: "idle", color: "indigo" },
+    { id: "schema", name: "Schema Analyzer", description: "Evaluating table relationships & indexes", icon: <Database className="w-5 h-5" />, status: "idle", color: "cyan" },
+    { id: "engine", name: "Optimization Engine", description: "Generating performance improvements", icon: <Brain className="w-5 h-5" />, status: "idle", color: "violet" },
+    { id: "advisor", name: "Index Advisor", description: "Recommending index strategies", icon: <Cpu className="w-5 h-5" />, status: "idle", color: "amber" },
+    { id: "compiler", name: "Result Compiler", description: "Preparing optimized output", icon: <FileCheck className="w-5 h-5" />, status: "idle", color: "emerald" },
+  ]);
+
+  const activateAgent = (agentId: string) => {
+    setAgents(prev => prev.map(a => a.id === agentId ? { ...a, status: "working" } : a));
+  };
+  const completeAgent = (agentId: string) => {
+    setAgents(prev => prev.map(a => a.id === agentId ? { ...a, status: "done" } : a));
+  };
+  const resetAgents = () => {
+    setAgents(prev => prev.map(a => ({ ...a, status: "idle" })));
+  };
   
   // Advanced Context States
   const [dialect, setDialect] = useState("PostgreSQL");
@@ -240,6 +268,12 @@ export default function SchemaChatPage() {
     
     setIsOptimizing(true);
     setOptimizedOutput("");
+    resetAgents();
+
+    // Stagger agent activations for visual effect
+    activateAgent("parser");
+    setTimeout(() => { completeAgent("parser"); activateAgent("schema"); }, 1200);
+    setTimeout(() => { completeAgent("schema"); activateAgent("engine"); }, 2800);
 
     try {
       const token = await getToken();
@@ -298,7 +332,14 @@ export default function SchemaChatPage() {
             try {
               const data = JSON.parse(dataStr);
               if (typeof data === "string" && currentEvent !== "error") {
-                setOptimizedOutput(prev => prev + data);
+                setOptimizedOutput(prev => {
+                  // Activate advisor on first real chunk
+                  if (prev.length === 0) {
+                    completeAgent("engine");
+                    activateAgent("advisor");
+                  }
+                  return prev + data;
+                });
               }
             } catch (e) {}
           }
@@ -308,7 +349,13 @@ export default function SchemaChatPage() {
       console.error(err);
       setOptimizedOutput("⚠️ **Backend Connection Failed:**\n\nCould not connect to the Python backend. Ensure that your backend is running locally or deployed, and `VITE_API_URL` is configured.");
     } finally {
-      setIsOptimizing(false);
+      // Finish remaining agents
+      completeAgent("advisor");
+      activateAgent("compiler");
+      setTimeout(() => {
+        completeAgent("compiler");
+        setIsOptimizing(false);
+      }, 800);
       // Refresh history cache so new entry appears in sidebar
       queryClient.invalidateQueries({ queryKey: getGetHistoryQueryKey() });
     }
@@ -648,7 +695,74 @@ export default function SchemaChatPage() {
                <CardContent className="p-0 overflow-hidden flex-1 flex flex-col min-h-0 bg-[#0a0a0c]/50">
                   {!optimizedOutput && !isOptimizing ? (
                      <div className="h-full flex items-center justify-center text-zinc-500 text-sm p-6">
-                       Run optimization to see the results here.
+                       <div className="text-center">
+                         <div className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-zinc-800/50 border border-zinc-700/50 flex items-center justify-center">
+                           <Bot className="w-8 h-8 text-zinc-600" />
+                         </div>
+                         <p className="text-zinc-400 font-medium">AI Agents Standing By</p>
+                         <p className="text-zinc-600 text-xs mt-1">Run optimization to deploy the agent swarm</p>
+                       </div>
+                     </div>
+                  ) : isOptimizing && !optimizedOutput ? (
+                     <div className="h-full flex flex-col p-5 overflow-y-auto custom-scrollbar">
+                       <div className="flex items-center gap-2 mb-5">
+                         <div className="relative">
+                           <div className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></div>
+                           <div className="absolute inset-0 w-2 h-2 rounded-full bg-emerald-400 animate-ping"></div>
+                         </div>
+                         <span className="text-xs font-semibold text-emerald-400 uppercase tracking-widest">Agent Swarm Active</span>
+                       </div>
+                       <div className="flex flex-col gap-3">
+                         {agents.map((agent, idx) => (
+                           <div
+                             key={agent.id}
+                             className={`relative flex items-center gap-4 p-4 rounded-xl border transition-all duration-500 ${
+                               agent.status === "working"
+                                 ? "bg-indigo-500/5 border-indigo-500/30 shadow-[0_0_20px_rgba(99,102,241,0.08)]"
+                                 : agent.status === "done"
+                                 ? "bg-emerald-500/5 border-emerald-500/20"
+                                 : "bg-zinc-900/30 border-zinc-800/40 opacity-50"
+                             }`}
+                           >
+                             <div className={`w-10 h-10 rounded-lg flex items-center justify-center shrink-0 transition-all duration-500 ${
+                               agent.status === "working"
+                                 ? "bg-indigo-500/15 text-indigo-400 shadow-[0_0_12px_rgba(99,102,241,0.2)]"
+                                 : agent.status === "done"
+                                 ? "bg-emerald-500/15 text-emerald-400"
+                                 : "bg-zinc-800/50 text-zinc-600"
+                             }`}>
+                               {agent.status === "done" ? <CheckCircle2 className="w-5 h-5" /> : agent.icon}
+                             </div>
+                             <div className="flex-1 min-w-0">
+                               <div className="flex items-center gap-2">
+                                 <span className={`text-sm font-semibold transition-colors duration-300 ${
+                                   agent.status === "working" ? "text-indigo-300" : agent.status === "done" ? "text-emerald-300" : "text-zinc-500"
+                                 }`}>{agent.name}</span>
+                                 {agent.status === "working" && (
+                                   <Loader2 className="w-3 h-3 text-indigo-400 animate-spin" />
+                                 )}
+                               </div>
+                               <p className={`text-xs mt-0.5 transition-colors duration-300 ${
+                                 agent.status === "working" ? "text-zinc-400" : agent.status === "done" ? "text-zinc-500" : "text-zinc-700"
+                               }`}>{agent.description}</p>
+                               {agent.status === "working" && (
+                                 <div className="mt-2 h-1 w-full bg-zinc-800 rounded-full overflow-hidden">
+                                   <div className="h-full bg-gradient-to-r from-indigo-500 via-violet-500 to-indigo-500 rounded-full animate-progress-indeterminate"></div>
+                                 </div>
+                               )}
+                             </div>
+                             <div className={`text-[10px] uppercase tracking-wider font-bold px-2 py-1 rounded-md shrink-0 ${
+                               agent.status === "working"
+                                 ? "bg-indigo-500/10 text-indigo-400"
+                                 : agent.status === "done"
+                                 ? "bg-emerald-500/10 text-emerald-400"
+                                 : "bg-zinc-800/50 text-zinc-600"
+                             }`}>
+                               {agent.status === "working" ? "Running" : agent.status === "done" ? "Done" : "Queued"}
+                             </div>
+                           </div>
+                         ))}
+                       </div>
                      </div>
                   ) : outputViewMode === "explanation" ? (
                      <div className="prose prose-sm md:prose-base dark:prose-invert max-w-none prose-p:leading-loose prose-pre:bg-[#050505] prose-pre:border prose-pre:border-zinc-800/80 prose-pre:rounded-xl font-light tracking-wide text-zinc-200 overflow-y-auto custom-scrollbar p-6">
