@@ -46,7 +46,7 @@ export default function SchemaChatPage() {
   // History State
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
   const queryClient = useQueryClient();
-  const { data: history = [], isLoading: isLoadingHistory } = useGetHistory({ query: { queryKey: getGetHistoryQueryKey(), enabled: isHistoryOpen } });
+  const { data: history = [], isLoading: isLoadingHistory } = useGetHistory({ query: { queryKey: getGetHistoryQueryKey() } });
   const deleteEntry = useDeleteHistoryEntry();
 
   const handleLoadHistory = (item: any) => {
@@ -150,12 +150,6 @@ export default function SchemaChatPage() {
         setView(viewParam);
       }
       setIntroStep(2);
-      
-      if (historyId) {
-        // Optionally fetch and load history here, or let user open sidebar.
-        // We will just open the sidebar for them to see it or load it.
-        setIsHistoryOpen(true);
-      }
       return;
     }
 
@@ -196,6 +190,26 @@ export default function SchemaChatPage() {
       }
     }
   }, [view]);
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const historyId = params.get("history_id");
+    
+    if (historyId && history.length > 0) {
+      const item = history.find((h: any) => h.id === parseInt(historyId));
+      if (item) {
+        // Prevent continuous reloading by clearing it from URL
+        const newParams = new URLSearchParams(window.location.search);
+        newParams.delete("history_id");
+        window.history.replaceState({}, document.title, `${window.location.pathname}?${newParams.toString()}`);
+        
+        setRawSql(item.original_query);
+        setOptimizedOutput(item.optimized_query || "");
+        setDialect(item.db_type || "PostgreSQL");
+        toast.success("History loaded successfully");
+      }
+    }
+  }, [history]);
 
   const handleOptimize = async (sqlToOptimize: string) => {
     if (!isSignedIn) {
