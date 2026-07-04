@@ -148,6 +148,7 @@ export default function SchemaChatPage() {
     if (viewParam && (viewParam === "sql-optimizer" || viewParam === "db-analyzer" || viewParam === "schema-builder")) {
       setView(viewParam);
       setIntroStep(2);
+      setIntroText("Please select an option to begin.");
       return;
     }
 
