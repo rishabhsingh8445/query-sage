@@ -932,7 +932,7 @@ export default function DashboardPage() {
                           try { return formatSql(raw, { language: 'postgresql' }); }
                           catch { return raw; }
                         })()} 
-                        splitView={true}
+                        splitView={false}
                         useDarkTheme={true}
                         styles={{
                           contentText: {

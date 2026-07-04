@@ -503,7 +503,7 @@ export default function SchemaChatPage() {
                         <ReactDiffViewer
                            oldValue={rawSql}
                            newValue={extractSqlBlock(optimizedOutput) || "-- AI hasn't generated valid SQL yet.\n-- See explanation for details."}
-                           splitView={true}
+                           splitView={false}
                            useDarkTheme={true}
                            hideLineNumbers={false}
                            styles={{
