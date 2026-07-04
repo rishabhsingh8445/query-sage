@@ -7,7 +7,7 @@ load_dotenv()
 
 QDRANT_URL = os.getenv("QDRANT_URL", "http://localhost:6333").rstrip('/')
 QDRANT_API_KEY = os.getenv("QDRANT_API_KEY")
-HF_TOKEN = os.getenv("HF_TOKEN")
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 
 COLLECTION_NAME = "querysage_schema_v2"
 
@@ -18,21 +18,19 @@ def qdrant_headers():
     return headers
 
 def get_embedding(text: str) -> list:
-    if not HF_TOKEN:
-        raise ValueError("HF_TOKEN is not set in environment variables")
-    
-    url = "https://api-inference.huggingface.co/pipeline/feature-extraction/sentence-transformers/all-MiniLM-L6-v2"
-    headers = {"Authorization": f"Bearer {HF_TOKEN}"}
-    payload = {"inputs": [text]}
-    
-    resp = requests.post(url, headers=headers, json=payload)
+    if not GEMINI_API_KEY:
+        raise ValueError("GEMINI_API_KEY is not set")
+    url = f"https://generativelanguage.googleapis.com/v1beta/models/text-embedding-004:embedContent?key={GEMINI_API_KEY}"
+    payload = {
+        "model": "models/text-embedding-004",
+        "content": {
+            "parts": [{"text": text}]
+        }
+    }
+    resp = requests.post(url, json=payload)
     resp.raise_for_status()
-    
-    # HF API returns a list of lists for feature-extraction pipeline
     data = resp.json()
-    if isinstance(data, list) and len(data) > 0:
-        return data[0]
-    return []
+    return data.get("embedding", {}).get("values", [])
 
 def init_qdrant():
     try:
