@@ -499,41 +499,19 @@ export default function SchemaChatPage() {
                         <ReactMarkdown>{optimizedOutput}</ReactMarkdown>
                      </div>
                   ) : (
-                     <div className="h-full overflow-auto text-sm custom-scrollbar bg-[#111] diff-viewer-wrapper">
-                        <ReactDiffViewer
-                           oldValue={rawSql}
-                           newValue={extractSqlBlock(optimizedOutput) || "-- AI hasn't generated valid SQL yet.\n-- See explanation for details."}
-                           splitView={false}
-                           useDarkTheme={true}
-                           hideLineNumbers={false}
-                           styles={{
-                             variables: {
-                               dark: {
-                                 diffViewerBackground: '#0a0a0c',
-                                 diffViewerColor: '#d4d4d8',
-                                 addedBackground: '#042f1b',
-                                 addedColor: '#34d399',
-                                 removedBackground: '#3f1115',
-                                 removedColor: '#f87171',
-                                 wordAddedBackground: '#065f37',
-                                 wordRemovedBackground: '#7f1d1d',
-                                 addedGutterBackground: '#042f1b',
-                                 removedGutterBackground: '#3f1115',
-                                 gutterBackground: '#0a0a0c',
-                                 gutterBackgroundDark: '#0a0a0c',
-                                 highlightBackground: '#2a2a2a',
-                                 highlightGutterBackground: '#2a2a2a',
-                                 codeFoldGutterBackground: '#0a0a0c',
-                                 codeFoldBackground: '#0a0a0c',
-                                 emptyLineBackground: '#0a0a0c',
-                                 gutterColor: '#52525b',
-                                 addedGutterColor: '#34d399',
-                                 removedGutterColor: '#f87171',
-                                 codeFoldContentColor: '#52525b',
-                               }
-                             }
-                           }}
-                        />
+                     <div className="h-full overflow-auto text-sm custom-scrollbar bg-[#0a0a0c] p-4 flex flex-col gap-6">
+                        <div className="flex flex-col border border-zinc-800/80 rounded-lg overflow-hidden shadow-sm">
+                           <div className="bg-red-950/20 text-red-400 px-4 py-2 text-xs font-semibold tracking-wider border-b border-zinc-800/80 uppercase">Original Query (Old)</div>
+                           <pre className="p-4 m-0 bg-[#050505] text-zinc-300 font-mono text-xs md:text-sm whitespace-pre-wrap overflow-x-auto leading-relaxed">
+                              {rawSql || "-- No original query provided."}
+                           </pre>
+                        </div>
+                        <div className="flex flex-col border border-zinc-800/80 rounded-lg overflow-hidden shadow-sm">
+                           <div className="bg-green-950/20 text-green-400 px-4 py-2 text-xs font-semibold tracking-wider border-b border-zinc-800/80 uppercase">Optimized Query (New)</div>
+                           <pre className="p-4 m-0 bg-[#050505] text-zinc-300 font-mono text-xs md:text-sm whitespace-pre-wrap overflow-x-auto leading-relaxed">
+                              {extractSqlBlock(optimizedOutput) || "-- AI hasn't generated valid SQL yet.\n-- See explanation for details."}
+                           </pre>
+                        </div>
                      </div>
                   )}
                </CardContent>

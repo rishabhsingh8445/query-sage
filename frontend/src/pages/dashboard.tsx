@@ -921,59 +921,27 @@ export default function DashboardPage() {
                     </Button>
                   )}
                 </h3>
-                <div className="rounded-lg border border-border overflow-x-auto max-w-[100vw] sm:max-w-full bg-[#0d1117] p-2 shadow-inner">
+                <div className="rounded-lg border border-border overflow-hidden max-w-[100vw] sm:max-w-full bg-[#0a0a0c] p-4 shadow-inner flex flex-col gap-6">
                   {result?.optimized_query || partialResult?.optimized_query ? (
-                    <div className="min-w-0" style={{ width: "100%", overflowX: "auto" }}>
-                      <ReactDiffViewer 
-                        oldValue={result?.original_query || form.getValues().query} 
-                        newValue={(() => {
-                          const raw = result?.optimized_query || partialResult?.optimized_query || "";
-                          if (!raw) return "";
-                          try { return formatSql(raw, { language: 'postgresql' }); }
-                          catch { return raw; }
-                        })()} 
-                        splitView={false}
-                        useDarkTheme={true}
-                        styles={{
-                          contentText: {
-                            wordBreak: 'break-word',
-                          },
-                          variables: {
-                            dark: {
-                              diffViewerBackground: 'transparent',
-                              emptyLineBackground: 'transparent',
-                              addedBackground: 'rgba(34, 197, 94, 0.15)',
-                              addedColor: 'hsl(var(--foreground))',
-                              removedBackground: 'rgba(239, 68, 68, 0.15)',
-                              removedColor: 'hsl(var(--foreground))',
-                              wordAddedBackground: 'rgba(34, 197, 94, 0.4)',
-                              wordRemovedBackground: 'rgba(239, 68, 68, 0.4)',
-                              addedGutterBackground: 'rgba(34, 197, 94, 0.05)',
-                              removedGutterBackground: 'rgba(239, 68, 68, 0.05)',
-                              gutterBackground: 'transparent',
-                              gutterBackgroundDark: 'transparent',
-                            },
-                            light: {
-                              diffViewerBackground: 'transparent',
-                              addedBackground: 'rgba(34, 197, 94, 0.1)',
-                              addedColor: 'hsl(var(--foreground))',
-                              removedBackground: 'rgba(239, 68, 68, 0.1)',
-                              removedColor: 'hsl(var(--foreground))',
-                              wordAddedBackground: 'rgba(34, 197, 94, 0.3)',
-                              wordRemovedBackground: 'rgba(239, 68, 68, 0.3)',
-                              addedGutterBackground: 'rgba(34, 197, 94, 0.05)',
-                              removedGutterBackground: 'rgba(239, 68, 68, 0.05)',
-                              gutterBackground: 'transparent',
-                              gutterBackgroundDark: 'transparent',
-                            }
-                          },
-                          diffContainer: {
-                            fontSize: '13px',
-                            fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace',
-                          }
-                        }}
-                      />
-                    </div>
+                    <>
+                      <div className="flex flex-col border border-zinc-800/80 rounded-lg overflow-hidden shadow-sm">
+                        <div className="bg-red-950/20 text-red-400 px-4 py-2 text-xs font-semibold tracking-wider border-b border-zinc-800/80 uppercase">Original Query (Old)</div>
+                        <pre className="p-4 m-0 bg-[#050505] text-zinc-300 font-mono text-xs md:text-sm whitespace-pre-wrap overflow-x-auto leading-relaxed">
+                          {result?.original_query || form.getValues().query || "-- No original query provided."}
+                        </pre>
+                      </div>
+                      <div className="flex flex-col border border-zinc-800/80 rounded-lg overflow-hidden shadow-sm">
+                        <div className="bg-green-950/20 text-green-400 px-4 py-2 text-xs font-semibold tracking-wider border-b border-zinc-800/80 uppercase">Optimized Query (New)</div>
+                        <pre className="p-4 m-0 bg-[#050505] text-zinc-300 font-mono text-xs md:text-sm whitespace-pre-wrap overflow-x-auto leading-relaxed">
+                          {(() => {
+                            const raw = result?.optimized_query || partialResult?.optimized_query || "";
+                            if (!raw) return "";
+                            try { return formatSql(raw, { language: 'postgresql' }); }
+                            catch { return raw; }
+                          })()}
+                        </pre>
+                      </div>
+                    </>
                   ) : (
                     <div className="bg-muted/50 p-4 relative min-w-0">
                       <div className="text-[10px] font-mono text-green-600/80 mb-3 uppercase tracking-wider flex items-center gap-2">
