@@ -47,7 +47,7 @@ export default function SchemaChatPage() {
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
   const queryClient = useQueryClient();
 
-  const { data: history = [], isLoading: isLoadingHistory } = useGetHistory({ query: { queryKey: getGetHistoryQueryKey(), enabled: !!isSignedIn } });
+  const { data: history = [], isLoading: isLoadingHistory, isError, error, refetch } = useGetHistory({ query: { queryKey: getGetHistoryQueryKey(), enabled: !!isSignedIn } });
   const deleteEntry = useDeleteHistoryEntry();
 
   const handleLoadHistory = (item: any) => {
@@ -214,9 +214,9 @@ export default function SchemaChatPage() {
 
   useEffect(() => {
     if (isHistoryOpen) {
-      queryClient.invalidateQueries({ queryKey: getGetHistoryQueryKey() });
+      refetch();
     }
-  }, [isHistoryOpen, queryClient]);
+  }, [isHistoryOpen, refetch]);
 
   const handleOptimize = async (sqlToOptimize: string) => {
     if (!isSignedIn) {
@@ -495,9 +495,17 @@ export default function SchemaChatPage() {
                            <div className="flex justify-center items-center py-10">
                              <Loader2 className="h-6 w-6 text-indigo-400 animate-spin" />
                            </div>
+                         ) : isError ? (
+                           <div className="text-center py-10 text-red-500 flex flex-col items-center gap-2">
+                             <span>Error loading history.</span>
+                             <span className="text-xs opacity-70">{(error as any)?.message || 'Unknown error'}</span>
+                             <Button variant="outline" size="sm" onClick={() => refetch()}>Retry</Button>
+                           </div>
                          ) : history.length === 0 ? (
-                           <div className="text-center py-10 text-zinc-500">
+                           <div className="text-center py-10 text-zinc-500 flex flex-col items-center gap-2">
                              No history found.
+                             {!isSignedIn && <span className="text-xs">Please sign in.</span>}
+                             <Button variant="outline" size="sm" onClick={() => refetch()}>Refresh</Button>
                            </div>
                          ) : (
                            history.map((item: any) => (
