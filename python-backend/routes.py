@@ -207,6 +207,8 @@ class SchemaChatBody(BaseModel):
     thread_id: Optional[str] = None
     chat_history: Optional[List[Dict]] = []
     timezone_offset: Optional[int] = 0
+    raw_query: Optional[str] = None
+    db_type: Optional[str] = "PostgreSQL"
 
 from models import SchemaChatThread
 from rag import search_relevant_schema
@@ -308,11 +310,34 @@ async def schema_chat(request: SchemaChatBody, user_id: str = Depends(get_curren
             full_response = task.result()
             current_chat.append({"role": "assistant", "content": full_response})
             
-            # update db
+            # update thread db
             thread = db.query(SchemaChatThread).filter(SchemaChatThread.id == thread_id).first()
             if thread:
                 thread.messages = current_chat
                 db.commit()
+
+            # Also save to QueryHistory so /api/history works
+            if request.raw_query and request.raw_query.strip():
+                try:
+                    history_entry = QueryHistory(
+                        user_id=user_id,
+                        original_query=request.raw_query,
+                        optimized_query=full_response,
+                        explanation=full_response,
+                        bottlenecks=[],
+                        suggested_indexes=[],
+                        estimated_improvement="",
+                        execution_plan_summary="",
+                        query_complexity_score=None,
+                        db_type=request.db_type or "PostgreSQL"
+                    )
+                    db.add(history_entry)
+                    db.commit()
+                    db.refresh(history_entry)
+                    yield f"event: savedId\ndata: {history_entry.id}\n\n"
+                except Exception as he:
+                    print(f"History save error: {he}")
+                    db.rollback()
                 
             yield "event: done\ndata: {\"success\": true}\n\n"
         except Exception as e:

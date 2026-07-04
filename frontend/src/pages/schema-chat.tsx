@@ -248,6 +248,8 @@ export default function SchemaChatPage() {
           message: fullMessage,
           chat_history: [],
           timezone_offset: new Date().getTimezoneOffset(),
+          raw_query: sqlToOptimize,
+          db_type: dialect,
         }),
       });
 
@@ -294,6 +296,8 @@ export default function SchemaChatPage() {
       setOptimizedOutput("⚠️ **Backend Connection Failed:**\n\nCould not connect to the Python backend. Ensure that your backend is running locally or deployed, and `VITE_API_URL` is configured.");
     } finally {
       setIsOptimizing(false);
+      // Refresh history cache so new entry appears in sidebar
+      queryClient.invalidateQueries({ queryKey: getGetHistoryQueryKey() });
     }
   };
 
