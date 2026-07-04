@@ -249,8 +249,19 @@ export default function HistoryPage() {
               </div>
               <div className="flex items-center gap-2 mr-6">
                 {selectedEntry && (
-                  <Button 
-                    variant="outline" 
+                  <>
+                    <Button
+                      variant="default"
+                      size="sm"
+                      className="bg-indigo-600 hover:bg-indigo-700 text-white"
+                      onClick={() => {
+                        window.location.href = `/schema-chat?view=sql-optimizer&history_id=${selectedEntry.id}`;
+                      }}
+                    >
+                      <Database className="h-4 w-4 mr-2" /> Load in Optimizer
+                    </Button>
+                    <Button 
+                      variant="outline" 
                     size="sm" 
                     onClick={() => {
                       const lines = [];
@@ -300,6 +311,7 @@ export default function HistoryPage() {
                   >
                     <Download className="h-4 w-4 mr-2" /> Download Markdown
                   </Button>
+                  </>
                 )}
                 {selectedEntry && (
                   <Button 

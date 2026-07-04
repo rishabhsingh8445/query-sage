@@ -533,6 +533,21 @@ async def get_history_entry(id: int, user_id: str = Depends(get_current_user), d
         "share_id": q.share_id,
         "created_at": q.created_at.isoformat()
     }
+@router.delete("/history/{id}")
+async def delete_history_entry(id: int, user_id: str = Depends(get_current_user), db: Session = Depends(get_db)):
+    q = db.query(QueryHistory).filter(QueryHistory.id == id, QueryHistory.user_id == user_id).first()
+    if not q:
+        from fastapi import HTTPException
+        raise HTTPException(status_code=404, detail="Not found")
+    db.delete(q)
+    db.commit()
+    return {"status": "success"}
+
+@router.delete("/history")
+async def clear_history(user_id: str = Depends(get_current_user), db: Session = Depends(get_db)):
+    db.query(QueryHistory).filter(QueryHistory.user_id == user_id).delete()
+    db.commit()
+    return {"status": "success"}
 
 @router.get("/stats")
 async def get_stats(user_id: str = Depends(get_current_user), db: Session = Depends(get_db)):

@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { useAuth, SignInButton, useClerk } from "@clerk/react";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
@@ -8,7 +9,10 @@ import { Label } from "@/components/ui/label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ArrowLeft, Database, Code2, Zap, SearchCode, Loader2, Activity, Network, Play } from "lucide-react";
+import { ArrowLeft, Database, Code2, Zap, SearchCode, Loader2, Activity, Network, Play, Clock, Trash2 } from "lucide-react";
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger, SheetDescription } from "@/components/ui/sheet";
+import { useGetHistory, useDeleteHistoryEntry, getGetHistoryQueryKey, useGetHistoryEntry } from "@workspace/api-client-react";
+import { format } from "date-fns";
 import ReactMarkdown from "react-markdown";
 import ReactDiffViewer from 'react-diff-viewer-continued';
 import { ReactFlow, Background, Controls, applyNodeChanges, applyEdgeChanges, type Node, type Edge, type NodeChange, type EdgeChange } from '@xyflow/react';
@@ -39,6 +43,30 @@ export default function SchemaChatPage() {
   const [explainPlan, setExplainPlan] = useState("");
   const [outputViewMode, setOutputViewMode] = useState<"explanation" | "diff">("explanation");
   
+  // History State
+  const [isHistoryOpen, setIsHistoryOpen] = useState(false);
+  const queryClient = useQueryClient();
+  const { data: history = [], isLoading: isLoadingHistory } = useGetHistory({ query: { queryKey: getGetHistoryQueryKey(), enabled: isHistoryOpen } });
+  const deleteEntry = useDeleteHistoryEntry();
+
+  const handleLoadHistory = (item: any) => {
+    setRawSql(item.original_query);
+    setOptimizedOutput(item.optimized_query || "");
+    setDialect(item.db_type || "PostgreSQL");
+    setIsHistoryOpen(false);
+    toast.success("History loaded successfully");
+  };
+
+  const handleDeleteHistory = (e: React.MouseEvent, id: number) => {
+    e.stopPropagation();
+    deleteEntry.mutate({ id }, {
+      onSuccess: () => {
+        toast.success("Entry deleted");
+        queryClient.invalidateQueries({ queryKey: getGetHistoryQueryKey() });
+      }
+    });
+  };
+
   const extractSqlBlock = (markdown: string) => {
     const match = markdown.match(/```sql\n([\s\S]*?)```/);
     return match ? match[1].trim() : "";
@@ -113,16 +141,21 @@ export default function SchemaChatPage() {
   };
   
   useEffect(() => {
-    // Handle redirect from login
     const params = new URLSearchParams(window.location.search);
     const viewParam = params.get("view") as ViewState | null;
+    const historyId = params.get("history_id");
     
     if (viewParam && (viewParam === "sql-optimizer" || viewParam === "db-analyzer" || viewParam === "schema-builder")) {
       if (view !== viewParam) {
         setView(viewParam);
       }
       setIntroStep(2);
-      window.history.replaceState({}, document.title, window.location.pathname);
+      
+      if (historyId) {
+        // Optionally fetch and load history here, or let user open sidebar.
+        // We will just open the sidebar for them to see it or load it.
+        setIsHistoryOpen(true);
+      }
       return;
     }
 
@@ -147,6 +180,21 @@ export default function SchemaChatPage() {
       setIntroStep(2); // Unlocks the dashboard cards to fade in
     };
     sequence();
+  }, [view]);
+
+  // Sync view state to URL to support refreshing
+  useEffect(() => {
+    if (view !== "dashboard") {
+      const params = new URLSearchParams(window.location.search);
+      if (params.get("view") !== view) {
+        window.history.pushState({}, document.title, `${window.location.pathname}?view=${view}`);
+      }
+    } else {
+      const params = new URLSearchParams(window.location.search);
+      if (params.has("view")) {
+        window.history.pushState({}, document.title, window.location.pathname);
+      }
+    }
   }, [view]);
 
   const handleOptimize = async (sqlToOptimize: string) => {
@@ -403,6 +451,68 @@ export default function SchemaChatPage() {
                    <Code2 className="w-5 h-5 text-indigo-400" /> Optimizer Context
                  </CardTitle>
                  <div className="flex gap-2">
+                   <Sheet open={isHistoryOpen} onOpenChange={setIsHistoryOpen}>
+                     <SheetTrigger asChild>
+                       <Button variant="outline" size="sm" className="h-8 bg-black/40 border-zinc-700 text-xs text-zinc-300 hover:text-white">
+                         <Clock className="w-3.5 h-3.5 mr-2" />
+                         History
+                       </Button>
+                     </SheetTrigger>
+                     <SheetContent className="w-[400px] sm:w-[540px] bg-[#0a0a0c]/95 border-l border-zinc-800 backdrop-blur-xl overflow-y-auto custom-scrollbar">
+                       <SheetHeader className="mb-6">
+                         <SheetTitle className="text-xl font-semibold text-zinc-100 flex items-center gap-2">
+                           <Clock className="w-5 h-5 text-indigo-400" />
+                           Optimization History
+                         </SheetTitle>
+                         <SheetDescription className="text-zinc-400">
+                           View and load your previous SQL optimizations.
+                         </SheetDescription>
+                       </SheetHeader>
+
+                       <div className="flex flex-col gap-4">
+                         {isLoadingHistory ? (
+                           <div className="flex justify-center items-center py-10">
+                             <Loader2 className="h-6 w-6 text-indigo-400 animate-spin" />
+                           </div>
+                         ) : history.length === 0 ? (
+                           <div className="text-center py-10 text-zinc-500">
+                             No history found.
+                           </div>
+                         ) : (
+                           history.map((item: any) => (
+                             <Card key={item.id} className="bg-[#111113] border-zinc-800 hover:border-indigo-500/50 transition-colors group">
+                               <CardContent className="p-4">
+                                 <div className="flex justify-between items-start mb-3">
+                                   <div className="flex items-center gap-2">
+                                     <span className="px-2 py-0.5 rounded text-[10px] font-medium bg-zinc-800 text-zinc-300">
+                                       {item.db_type || "PostgreSQL"}
+                                     </span>
+                                     <span className="text-xs text-zinc-500">
+                                       {format(new Date(item.created_at), "MMM d, yyyy h:mm a")}
+                                     </span>
+                                   </div>
+                                   <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                     <Button variant="ghost" size="icon" className="h-7 w-7 text-zinc-400 hover:text-white hover:bg-indigo-500/20" onClick={() => handleLoadHistory(item)}>
+                                       <Database className="h-3.5 w-3.5" />
+                                     </Button>
+                                     <Button variant="ghost" size="icon" className="h-7 w-7 text-zinc-400 hover:text-red-400 hover:bg-red-500/10" onClick={(e) => handleDeleteHistory(e, item.id)}>
+                                       <Trash2 className="h-3.5 w-3.5" />
+                                     </Button>
+                                   </div>
+                                 </div>
+                                 <div className="bg-black/50 p-3 rounded-md border border-zinc-800/50 overflow-hidden">
+                                   <p className="text-xs text-zinc-300 font-mono line-clamp-3 whitespace-pre-wrap">
+                                     {item.original_query}
+                                   </p>
+                                 </div>
+                               </CardContent>
+                             </Card>
+                           ))
+                         )}
+                       </div>
+                     </SheetContent>
+                   </Sheet>
+
                    <Select value={dialect} onValueChange={setDialect}>
                      <SelectTrigger className="w-[120px] h-8 bg-black/40 border-zinc-700 text-xs">
                        <SelectValue placeholder="Dialect" />
