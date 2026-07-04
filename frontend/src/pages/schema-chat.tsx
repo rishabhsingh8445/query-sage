@@ -144,19 +144,14 @@ export default function SchemaChatPage() {
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const viewParam = params.get("view") as ViewState | null;
-    const historyId = params.get("history_id");
     
     if (viewParam && (viewParam === "sql-optimizer" || viewParam === "db-analyzer" || viewParam === "schema-builder")) {
-      if (view !== viewParam) {
-        setView(viewParam);
-      }
+      setView(viewParam);
       setIntroStep(2);
       return;
     }
 
-    // Only play intro when entering the dashboard
-    if (view !== "dashboard") return;
-    
+    // Play intro only on initial load if no specific view is requested
     setIntroStep(1);
     const sequence = async () => {
       await new Promise(r => setTimeout(r, 500));
@@ -175,22 +170,39 @@ export default function SchemaChatPage() {
       setIntroStep(2); // Unlocks the dashboard cards to fade in
     };
     sequence();
-  }, [view]);
+  }, []); // Run only on mount
 
   // Sync view state to URL to support refreshing
   useEffect(() => {
     if (view !== "dashboard") {
       const params = new URLSearchParams(window.location.search);
       if (params.get("view") !== view) {
-        window.history.pushState({}, document.title, `${window.location.pathname}?view=${view}`);
+        window.history.pushState({ view }, document.title, `${window.location.pathname}?view=${view}`);
       }
     } else {
       const params = new URLSearchParams(window.location.search);
       if (params.has("view")) {
-        window.history.pushState({}, document.title, window.location.pathname);
+        window.history.pushState({ view: "dashboard" }, document.title, window.location.pathname);
       }
     }
   }, [view]);
+
+  // Handle browser back/forward buttons
+  useEffect(() => {
+    const handlePopState = (e: PopStateEvent) => {
+      const params = new URLSearchParams(window.location.search);
+      const viewParam = params.get("view") as ViewState | null;
+      if (viewParam) {
+        setView(viewParam);
+        setIntroStep(2);
+      } else {
+        setView("dashboard");
+        setIntroStep(2);
+      }
+    };
+    window.addEventListener("popstate", handlePopState);
+    return () => window.removeEventListener("popstate", handlePopState);
+  }, []);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
