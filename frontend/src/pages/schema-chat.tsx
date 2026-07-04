@@ -212,6 +212,12 @@ export default function SchemaChatPage() {
     }
   }, [history]);
 
+  useEffect(() => {
+    if (isHistoryOpen) {
+      queryClient.invalidateQueries({ queryKey: getGetHistoryQueryKey() });
+    }
+  }, [isHistoryOpen, queryClient]);
+
   const handleOptimize = async (sqlToOptimize: string) => {
     if (!isSignedIn) {
       toast.error("Please sign in to run optimizations.");
