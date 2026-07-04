@@ -46,7 +46,8 @@ export default function SchemaChatPage() {
   // History State
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
   const queryClient = useQueryClient();
-  const { data: history = [], isLoading: isLoadingHistory } = useGetHistory({ query: { queryKey: getGetHistoryQueryKey() } });
+
+  const { data: history = [], isLoading: isLoadingHistory } = useGetHistory({ query: { queryKey: getGetHistoryQueryKey(), enabled: !!isSignedIn } });
   const deleteEntry = useDeleteHistoryEntry();
 
   const handleLoadHistory = (item: any) => {
