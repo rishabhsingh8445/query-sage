@@ -9,7 +9,8 @@ import { Label } from "@/components/ui/label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ArrowLeft, Database, Code2, Zap, SearchCode, Loader2, Activity, Network, Play, Clock, Trash2, Bot, Brain, Cpu, Shield, FileCheck, CheckCircle2, CircleDot } from "lucide-react";
+import { ArrowLeft, Database, Code2, Zap, SearchCode, Loader2, Activity, Network, Play, Clock, Trash2, Bot, Brain, Cpu, Shield, FileCheck, CheckCircle2, CircleDot, Calculator, ShieldAlert } from "lucide-react";
+import { IndexEstimator } from "@/components/IndexEstimator";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger, SheetDescription } from "@/components/ui/sheet";
 import { useGetHistory, useDeleteHistoryEntry, getGetHistoryQueryKey, useGetHistoryEntry } from "@workspace/api-client-react";
 import { format } from "date-fns";
@@ -35,6 +36,20 @@ export default function SchemaChatPage() {
   const [rawSql, setRawSql] = useState("");
   const [optimizedOutput, setOptimizedOutput] = useState("");
   const [isOptimizing, setIsOptimizing] = useState(false);
+  const [optimizationResult, setOptimizationResult] = useState<any>(null);
+  const [isEstimating, setIsEstimating] = useState(false);
+  const [estimateResult, setEstimateResult] = useState<{ cost: number, rows: number, risk_level: string, message: string } | null>(null);
+
+  // DB Connection Config State
+  interface DbConnectionConfig {
+    db_type: string;
+    host: string;
+    port: number;
+    database: string;
+    username: string;
+    password?: string;
+  }
+  const [dbConfig, setDbConfig] = useState<DbConnectionConfig | null>(null);
 
   // Agent Activity State
   type AgentStatus = "idle" | "working" | "done";
@@ -47,15 +62,19 @@ export default function SchemaChatPage() {
     color: string;
   }
   const [agents, setAgents] = useState<AgentState[]>([
-    { id: "parser", name: "Query Parser", description: "Analyzing SQL syntax & structure", icon: <SearchCode className="w-5 h-5" />, status: "idle", color: "indigo" },
+    { id: "parser", name: "Query Parser", description: "Analyzing SQL complexity & syntax", icon: <SearchCode className="w-5 h-5" />, status: "idle", color: "indigo" },
     { id: "schema", name: "Schema Analyzer", description: "Evaluating table relationships & indexes", icon: <Database className="w-5 h-5" />, status: "idle", color: "cyan" },
-    { id: "engine", name: "Optimization Engine", description: "Generating performance improvements", icon: <Brain className="w-5 h-5" />, status: "idle", color: "violet" },
+    { id: "engine", name: "Deep Optimizer", description: "Generating complex performance improvements", icon: <Brain className="w-5 h-5" />, status: "idle", color: "violet" },
     { id: "advisor", name: "Index Advisor", description: "Recommending index strategies", icon: <Cpu className="w-5 h-5" />, status: "idle", color: "amber" },
     { id: "compiler", name: "Result Compiler", description: "Preparing optimized output", icon: <FileCheck className="w-5 h-5" />, status: "idle", color: "emerald" },
   ]);
 
   const activateAgent = (agentId: string) => {
-    setAgents(prev => prev.map(a => a.id === agentId ? { ...a, status: "working" } : a));
+    setAgents(prev => prev.map(a => {
+      if (a.id === agentId) return { ...a, status: "working" };
+      if (a.status === "working") return { ...a, status: "done" };
+      return a;
+    }));
   };
   const completeAgent = (agentId: string) => {
     setAgents(prev => prev.map(a => a.id === agentId ? { ...a, status: "done" } : a));
@@ -80,7 +99,9 @@ export default function SchemaChatPage() {
 
   const handleLoadHistory = (item: any) => {
     setRawSql(item.original_query);
-    setOptimizedOutput(item.optimized_query || "");
+    const md = `${item.explanation || ""}\n\n\`\`\`sql\n${item.optimized_query || ""}\n\`\`\``;
+    setOptimizedOutput(md);
+    setOptimizationResult(item);
     setDialect(item.db_type || "PostgreSQL");
     setIsHistoryOpen(false);
     toast.success("History loaded successfully");
@@ -201,6 +222,18 @@ export default function SchemaChatPage() {
     sequence();
   }, []); // Run only on mount
 
+  // Prefill query from session storage if redirected from visual builder/monitor
+  useEffect(() => {
+    const prefill = sessionStorage.getItem('prefillQuery');
+    if (prefill) {
+      setRawSql(prefill);
+      setView("sql-optimizer");
+      setIntroStep(2);
+      sessionStorage.removeItem('prefillQuery');
+      toast.success("Query prefilled successfully");
+    }
+  }, []);
+
   // Sync view state to URL to support refreshing
   useEffect(() => {
     if (view !== "dashboard") {
@@ -269,16 +302,14 @@ export default function SchemaChatPage() {
     setIsOptimizing(true);
     setOptimizedOutput("");
     resetAgents();
-
-    // Stagger agent activations for visual effect
+    
+    // Start with parser working
     activateAgent("parser");
-    setTimeout(() => { completeAgent("parser"); activateAgent("schema"); }, 1200);
-    setTimeout(() => { completeAgent("schema"); activateAgent("engine"); }, 2800);
 
     try {
       const token = await getToken();
       const baseUrl = import.meta.env.VITE_API_URL || "";
-      const apiUrl = `${baseUrl}/api/schema-chat`;
+      const apiUrl = `${baseUrl}/api/langgraph-optimize`;
       
       let fullMessage = `Please optimize the following SQL query for the ${dialect} database.\nGoal: ${optimizationGoal}.\n\nRaw Query:\n\`\`\`sql\n${sqlToOptimize}\n\`\`\``;
       if (schemaContext.trim()) {
@@ -297,6 +328,7 @@ export default function SchemaChatPage() {
           timezone_offset: new Date().getTimezoneOffset(),
           raw_query: sqlToOptimize,
           db_type: dialect,
+          db_config: dbConfig,
         }),
       });
 
@@ -328,18 +360,41 @@ export default function SchemaChatPage() {
               } catch (e) {}
               continue;
             }
+            
+            if (currentEvent === "trace") {
+              try {
+                const traceData = JSON.parse(dataStr);
+                const step = traceData.step as string;
+                if (step.includes("Analyzing Schema")) {
+                  activateAgent("schema");
+                } else if (step.includes("Generating Optimized SQL")) {
+                  activateAgent("engine");
+                } else if (step.includes("Evaluating Cost")) {
+                  activateAgent("advisor");
+                } else if (step.includes("Validating")) {
+                  activateAgent("compiler");
+                }
+              } catch (e) {}
+              continue;
+            }
 
             try {
               const data = JSON.parse(dataStr);
-              if (typeof data === "string" && currentEvent !== "error") {
-                setOptimizedOutput(prev => {
-                  // Activate advisor on first real chunk
-                  if (prev.length === 0) {
-                    completeAgent("engine");
-                    activateAgent("advisor");
-                  }
-                  return prev + data;
-                });
+              if (currentEvent === "chunk") {
+                // If it's a JSON block from the langgraph backend
+                if (typeof data === "object" && data.optimized_query) {
+                  activateAgent("compiler");
+                  setOptimizationResult(data);
+                  const explanation = data.explanation || "";
+                  const sql = data.optimized_query;
+                  const md = `${explanation}\n\n\`\`\`sql\n${sql}\n\`\`\``;
+                  setOptimizedOutput(md);
+                  completeAgent("compiler");
+                } else if (typeof data === "string") {
+                  setOptimizedOutput(prev => prev + data);
+                }
+              } else if (typeof data === "string" && currentEvent !== "error") {
+                setOptimizedOutput(prev => prev + data);
               }
             } catch (e) {}
           }
@@ -349,15 +404,48 @@ export default function SchemaChatPage() {
       console.error(err);
       setOptimizedOutput("⚠️ **Backend Connection Failed:**\n\nCould not connect to the Python backend. Ensure that your backend is running locally or deployed, and `VITE_API_URL` is configured.");
     } finally {
-      // Finish remaining agents
-      completeAgent("advisor");
-      activateAgent("compiler");
+      // Make sure any "working" agents are completed
+      setAgents(prev => prev.map(a => a.status === "working" ? { ...a, status: "done" } : a));
       setTimeout(() => {
-        completeAgent("compiler");
         setIsOptimizing(false);
-      }, 800);
+      }, 500);
       // Refresh history cache so new entry appears in sidebar
       queryClient.invalidateQueries({ queryKey: getGetHistoryQueryKey() });
+    }
+  };
+
+  const estimateCost = async () => {
+    if (!dbConfig) return;
+    setIsEstimating(true);
+    setEstimateResult(null);
+    try {
+      const baseUrl = import.meta.env.VITE_API_URL || "";
+      const token = await getToken();
+      const input = {
+        query: rawSql,
+        db_config: dbConfig
+      };
+
+      const res = await fetch(`${baseUrl}/api/queries/estimate`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {})
+        },
+        body: JSON.stringify(input)
+      });
+      
+      if (!res.ok) {
+        const err = await res.json().catch(()=>({}));
+        throw new Error(err.error || "Failed to estimate cost");
+      }
+      const data = await res.json();
+      setEstimateResult(data);
+      toast.success("Cost estimation retrieved");
+    } catch (err: any) {
+      toast.error(err.message || "Failed to estimate query cost");
+    } finally {
+      setIsEstimating(false);
     }
   };
 
@@ -402,6 +490,14 @@ export default function SchemaChatPage() {
       
       setTelemetryData(data);
       setIsConnected(true);
+      setDbConfig({
+        db_type: "postgresql",
+        host,
+        port,
+        database,
+        username,
+        password
+      });
       toast.success("Connected to database securely!");
     } catch (err: any) {
       console.error(err);
@@ -667,14 +763,43 @@ export default function SchemaChatPage() {
                      </TabsContent>
                   </Tabs>
 
-                  <div className="p-4 border-t border-zinc-800/50 bg-black/20 shrink-0">
-                     <Button 
-                       onClick={() => handleOptimize(rawSql)} 
-                       disabled={isOptimizing || !rawSql.trim()}
-                       className="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-medium"
-                     >
-                       {isOptimizing ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Optimizing...</> : <><Zap className="w-4 h-4 mr-2" /> Run AI Optimization</>}
-                     </Button>
+                  <div className="p-4 border-t border-zinc-800/50 bg-black/20 shrink-0 space-y-4">
+                     <div className="flex gap-4">
+                        <Button 
+                          onClick={() => handleOptimize(rawSql)} 
+                          disabled={isOptimizing || !rawSql.trim()}
+                          className="flex-1 bg-indigo-600 hover:bg-indigo-500 text-white font-medium"
+                        >
+                          {isOptimizing ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Optimizing...</> : <><Zap className="w-4 h-4 mr-2" /> Run AI Optimization</>}
+                        </Button>
+                        {dbConfig && (
+                          <Button
+                            type="button"
+                            variant="outline"
+                            className="bg-black/40 border-zinc-700 text-zinc-300 hover:text-white"
+                            disabled={isEstimating || !rawSql.trim()}
+                            onClick={estimateCost}
+                          >
+                            {isEstimating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Calculator className="h-4 w-4 text-indigo-400 mr-2" />}
+                            <span>Estimate Cost</span>
+                          </Button>
+                        )}
+                     </div>
+                     {estimateResult && (
+                       <div className="p-3 rounded-lg border border-zinc-800 bg-black/40 text-xs animate-in fade-in slide-in-from-top-2">
+                         <div className="flex items-center gap-2 mb-1.5 font-semibold text-zinc-200">
+                           {estimateResult.risk_level === 'HIGH' ? (
+                             <ShieldAlert className="h-4 w-4 text-rose-500" />
+                           ) : estimateResult.risk_level === 'MEDIUM' ? (
+                             <ShieldAlert className="h-4 w-4 text-amber-500" />
+                           ) : (
+                             <CheckCircle2 className="h-4 w-4 text-emerald-500" />
+                           )}
+                           Cost Estimation ({estimateResult.risk_level} Risk)
+                         </div>
+                         <p className="font-mono text-zinc-400 leading-relaxed bg-black/60 p-2 rounded border border-zinc-900">{estimateResult.message}</p>
+                       </div>
+                     )}
                   </div>
                </CardContent>
             </Card>
@@ -765,8 +890,41 @@ export default function SchemaChatPage() {
                        </div>
                      </div>
                   ) : outputViewMode === "explanation" ? (
-                     <div className="prose prose-sm md:prose-base dark:prose-invert max-w-none prose-p:leading-loose prose-pre:bg-[#050505] prose-pre:border prose-pre:border-zinc-800/80 prose-pre:rounded-xl font-light tracking-wide text-zinc-200 overflow-y-auto custom-scrollbar p-6">
-                        <ReactMarkdown>{optimizedOutput}</ReactMarkdown>
+                     <div className="flex flex-col gap-6 overflow-y-auto custom-scrollbar p-6 h-full">
+                        <div className="prose prose-sm md:prose-base dark:prose-invert max-w-none prose-p:leading-loose prose-pre:bg-[#050505] prose-pre:border prose-pre:border-zinc-800/80 prose-pre:rounded-xl font-light tracking-wide text-zinc-200">
+                           <ReactMarkdown>{optimizedOutput}</ReactMarkdown>
+                        </div>
+                        {optimizationResult?.suggested_indexes && optimizationResult.suggested_indexes.length > 0 && (
+                          <div className="space-y-3 mt-4 border-t border-zinc-800/50 pt-6">
+                            <h3 className="text-sm font-bold text-zinc-200 flex items-center justify-between">
+                              Suggested Indexes
+                            </h3>
+                            <div className="grid gap-3">
+                              {optimizationResult.suggested_indexes.map((idx: any, i: number) => {
+                                const statement = typeof idx === 'string' ? idx : idx.statement;
+                                const reason = typeof idx === 'object' ? idx.reason : null;
+                                return (
+                                  <div key={i} className="flex flex-col gap-2 rounded-xl bg-black/40 border border-zinc-850 p-4 transition-colors hover:bg-zinc-900/40">
+                                    <pre className="text-xs font-mono text-amber-500/90 whitespace-pre-wrap overflow-x-auto bg-[#050505] p-3 rounded-lg border border-zinc-900">
+                                      {statement}
+                                    </pre>
+                                    {reason && (
+                                      <p className="text-xs text-zinc-400">
+                                        <span className="font-semibold text-zinc-300">Reason:</span> {reason}
+                                      </p>
+                                    )}
+                                    <IndexEstimator 
+                                      indexStatement={statement}
+                                      query={rawSql}
+                                      dbType={dialect}
+                                      dbConfig={dbConfig}
+                                    />
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        )}
                      </div>
                   ) : (
                      <div className="h-full overflow-auto text-sm custom-scrollbar bg-[#0a0a0c] p-4 flex flex-col gap-6">

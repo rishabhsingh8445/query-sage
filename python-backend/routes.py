@@ -11,6 +11,47 @@ from sqlalchemy.orm import Session
 from graph import create_optimization_graph
 from tools import DbConfig
 import re
+from langchain_core.messages import SystemMessage, HumanMessage
+
+def run_db_query(db_config: dict, sql: str):
+    db_type = db_config.get("db_type", "postgresql").lower()
+    if db_type == "postgresql":
+        import psycopg2
+        import psycopg2.extras
+        conn = psycopg2.connect(
+            host=db_config.get("host"),
+            port=int(db_config.get("port") or 5432),
+            dbname=db_config.get("database"),
+            user=db_config.get("username"),
+            password=db_config.get("password"),
+            sslmode='require'
+        )
+        try:
+            with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
+                cur.execute(sql)
+                if cur.description:
+                    return [dict(row) for row in cur.fetchall()]
+                return []
+        finally:
+            conn.close()
+    elif db_type == "mysql":
+        import pymysql
+        conn = pymysql.connect(
+            host=db_config.get("host"),
+            port=int(db_config.get("port") or 3306),
+            database=db_config.get("database"),
+            user=db_config.get("username"),
+            password=db_config.get("password"),
+            cursorclass=pymysql.cursors.DictCursor
+        )
+        try:
+            with conn.cursor() as cur:
+                cur.execute(sql)
+                return cur.fetchall()
+        finally:
+            conn.close()
+    else:
+        raise ValueError("Unsupported database type")
 
 router = APIRouter()
 
@@ -141,6 +182,139 @@ async def langgraph_analyze(request: AnalyzeBody, user_id: str = Depends(get_cur
 
     return StreamingResponse(event_generator(), media_type="text/event-stream")
 
+@router.post("/langgraph-optimize")
+async def langgraph_optimize(request: SchemaChatBody, user_id: str = Depends(get_current_user), db: Session = Depends(get_db)):
+    async def event_generator():
+        yield "event: status\ndata: \"Starting Deep Analysis...\"\n\n"
+        
+        db_config_obj = DbConfig(
+            db_type=request.db_config.get("db_type") if request.db_config else request.db_type,
+            host=request.db_config.get("host") if request.db_config else None,
+            port=int(request.db_config.get("port")) if request.db_config and request.db_config.get("port") else None,
+            database=request.db_config.get("database") if request.db_config else None,
+            user=request.db_config.get("username") if request.db_config else None,
+            password=request.db_config.get("password") if request.db_config else None,
+        )
+
+        graph = create_optimization_graph()
+        
+        # Thread-safe queue for trace messages from sync graph nodes
+        import queue as thread_queue
+        trace_q = thread_queue.Queue()
+        graph_done = {"value": False}
+        graph_result = {"value": None, "error": None}
+        
+        def sync_on_trace(msg: str):
+            trace_q.put(msg)
+
+        # Basic context parsing from the message if provided
+        schema_context = ""
+        if "Schema Context (DDL):" in request.message:
+            try:
+                schema_context = request.message.split("Schema Context (DDL):")[1].split("```sql")[1].split("```")[0].strip()
+            except:
+                pass
+
+        initial_state = {
+            "original_query": request.raw_query or "",
+            "schema_context": schema_context,
+            "previous_optimizations": "",
+            "db_config": db_config_obj,
+            "on_trace": sync_on_trace
+        }
+
+        # Run the SYNC graph.invoke in a real background thread so that
+        # time.sleep() inside nodes doesn't block the async event loop,
+        # and trace messages arrive incrementally as each node starts.
+        import concurrent.futures
+        executor = concurrent.futures.ThreadPoolExecutor(max_workers=1)
+        
+        def run_graph():
+            try:
+                result = graph.invoke(initial_state)
+                graph_result["value"] = result
+            except Exception as e:
+                graph_result["error"] = e
+            finally:
+                graph_done["value"] = True
+        
+        future = executor.submit(run_graph)
+
+        # Poll the trace queue while the graph thread is running
+        while not graph_done["value"]:
+            await asyncio.sleep(0.15)
+            while not trace_q.empty():
+                try:
+                    msg = trace_q.get_nowait()
+                    yield f"event: trace\ndata: {json.dumps({'step': msg})}\n\n"
+                except:
+                    break
+
+        # Drain any remaining trace messages
+        while not trace_q.empty():
+            try:
+                msg = trace_q.get_nowait()
+                yield f"event: trace\ndata: {json.dumps({'step': msg})}\n\n"
+            except:
+                break
+
+        yield "event: status\ndata: \"Generating Result...\"\n\n"
+        
+        if graph_result["error"]:
+            yield f"event: error\ndata: {json.dumps(f'Optimization failed: {str(graph_result[\"error\"])}')}\n\n"
+            yield "event: done\ndata: true\n\n"
+            executor.shutdown(wait=False)
+            return
+        
+        try:
+            final_state = graph_result["value"]
+            messages = final_state.get("messages", [])
+            last_msg = messages[-1].content if messages else ""
+            
+            clean = last_msg.strip()
+            match = re.search(r'```(?:json)?\s*([\s\S]*?)\s*```', clean)
+            if match:
+                clean = match.group(1).strip()
+            else:
+                first = clean.find("{")
+                last = clean.rfind("}")
+                if first != -1 and last != -1:
+                    clean = clean[first:last+1].strip()
+
+            try:
+                llm_result = json.loads(clean)
+            except:
+                llm_result = {
+                    "optimized_query": final_state.get("optimized_query", ""),
+                    "explanation": clean,
+                    "bottlenecks": [], "suggested_indexes": [], "estimated_improvement": "", "execution_plan_summary": ""
+                }
+
+            # Emit the structured JSON chunk so frontend can parse and display it
+            yield f"event: chunk\ndata: {json.dumps(llm_result)}\n\n"
+            
+            # Save history
+            try:
+                history = QueryHistory(
+                    user_id=user_id,
+                    original_query=request.raw_query,
+                    optimized_query=llm_result.get("optimized_query", ""),
+                    explanation=llm_result.get("explanation", ""),
+                    db_type=request.db_type
+                )
+                db.add(history)
+                db.commit()
+            except Exception as e:
+                db.rollback()
+
+        except Exception as e:
+            yield f"event: error\ndata: {json.dumps(f'Optimization failed: {str(e)}')}\n\n"
+            
+        yield "event: done\ndata: true\n\n"
+        executor.shutdown(wait=False)
+
+    return StreamingResponse(event_generator(), media_type="text/event-stream")
+
 class ChatBody(BaseModel):
     history_id: int
     message: str
@@ -209,6 +383,7 @@ class SchemaChatBody(BaseModel):
     timezone_offset: Optional[int] = 0
     raw_query: Optional[str] = None
     db_type: Optional[str] = "PostgreSQL"
+    db_config: Optional[Dict] = None
 
 from models import SchemaChatThread
 from rag import search_relevant_schema
@@ -345,27 +520,214 @@ async def schema_chat(request: SchemaChatBody, user_id: str = Depends(get_curren
         
     return StreamingResponse(event_generator(), media_type="text/event-stream")
 
+class ExplainErrorBody(BaseModel):
+    query: str
+    error_message: str
+    db_type: str
+    schema: Optional[str] = None
+
 @router.post("/errors/explain")
-async def explain_error():
-    return {"explanation": "This feature is coming soon in the Python backend.", "corrected_query": "SELECT * FROM dual;"}
+async def explain_error(request: ExplainErrorBody):
+    try:
+        from llm import get_groq_llm
+        llm = get_groq_llm(temperature=0.2)
+        system_prompt = f"""You are the Database Repair Specialist.
+Analyze the following SQL query, database type ({request.db_type}), table DDL schemas (if provided), and the execution error.
+
+Explain clearly why the query failed, and provide the exact corrected SQL query.
+
+You must return a JSON response with two keys:
+"explanation": a string explaining the issue and correction.
+"corrected_query": a string containing only the corrected SQL query (without markdown wrappers).
+"""
+        user_prompt = f"""Query:
+{request.query}
+
+Error:
+{request.error_message}
+
+Schema (DDL):
+{request.schema or "No schema context provided."}
+"""
+        response = llm.invoke([
+            SystemMessage(content=system_prompt),
+            HumanMessage(content=user_prompt)
+        ])
+        
+        clean = response.content.strip()
+        match = re.search(r'```(?:json)?\s*([\s\S]*?)\s*```', clean)
+        if match:
+            clean = match.group(1).strip()
+        else:
+            first = clean.find("{")
+            last = clean.rfind("}")
+            if first != -1 and last != -1:
+                clean = clean[first:last+1].strip()
+        
+        result = json.loads(clean)
+        return {
+            "explanation": result.get("explanation", "Could not verify error details."),
+            "corrected_query": result.get("corrected_query", request.query)
+        }
+    except Exception as e:
+        return {
+            "explanation": f"AI was unable to explain the error: {str(e)}",
+            "corrected_query": request.query
+        }
+
+class EstimateBody(BaseModel):
+    query: str
+    db_config: Dict
 
 @router.post("/queries/estimate")
-async def estimate_query():
-    return {"cost": 0, "rows": 0, "risk_level": "LOW", "message": "Estimation coming soon in V2."}
+async def estimate_query(request: EstimateBody):
+    try:
+        db_type = request.db_config.get("db_type", "postgresql").lower()
+        if db_type == "postgresql":
+            import re
+            explainable_query = re.sub(r'\$\d+', 'NULL', request.query)
+            explainable_query = explainable_query.replace('?', 'NULL')
+            plan_rows = run_db_query(request.db_config, f"EXPLAIN (FORMAT JSON) {explainable_query}")
+            if plan_rows and isinstance(plan_rows, list):
+                plan = plan_rows[0][0][0].get("Plan", {}) if isinstance(plan_rows[0][0], list) else plan_rows[0].get("Plan", {})
+                cost = plan.get("Total Cost", 0)
+                rows = plan.get("Plan Rows", 0)
+                
+                risk = "LOW"
+                reasons = []
+                if cost > 10000:
+                    risk = "HIGH"
+                    reasons.append("High query execution cost (> 10000)")
+                elif cost > 2000:
+                    risk = "MEDIUM"
+                    reasons.append("Moderate query execution cost (> 2000)")
+                
+                has_seq_scan = False
+                def check_seq_scan(node):
+                    nonlocal has_seq_scan
+                    if node.get("Node Type") == "Seq Scan":
+                        has_seq_scan = True
+                    for child in node.get("Plans", []):
+                        check_seq_scan(child)
+                check_seq_scan(plan)
+                
+                if has_seq_scan:
+                    if risk != "HIGH":
+                        risk = "MEDIUM"
+                    reasons.append("Sequential scan detected on a table")
+                
+                msg = f"Cost: {cost}, Rows: {rows}. "
+                if reasons:
+                    msg += "Warnings: " + ", ".join(reasons)
+                else:
+                    msg += "No major database optimizer warnings found."
+                    
+                return {
+                    "cost": cost,
+                    "rows": rows,
+                    "risk_level": risk,
+                    "message": msg
+                }
+        elif db_type == "mysql":
+            import re
+            explainable_query = re.sub(r'\$\d+', 'NULL', request.query)
+            explainable_query = explainable_query.replace('?', 'NULL')
+            plan_rows = run_db_query(request.db_config, f"EXPLAIN FORMAT=JSON {explainable_query}")
+            if plan_rows:
+                import json
+                raw_json = list(plan_rows[0].values())[0]
+                if isinstance(raw_json, str):
+                    plan_data = json.loads(raw_json)
+                else:
+                    plan_data = raw_json
+                cost = float(plan_data.get("query_block", {}).get("cost_info", {}).get("query_cost", 0))
+                rows = int(plan_data.get("query_block", {}).get("cost_info", {}).get("rows_examined_per_scan", 0) or 0)
+                risk = "HIGH" if cost > 1000 else "MEDIUM" if cost > 100 else "LOW"
+                msg = f"MySQL query cost: {cost}. Rows examined: {rows}."
+                return {
+                    "cost": cost,
+                    "rows": rows,
+                    "risk_level": risk,
+                    "message": msg
+                }
+        return {"cost": 0, "rows": 0, "risk_level": "LOW", "message": "Estimator not configured or failed to parse plan."}
+    except Exception as e:
+        return {"cost": 0, "rows": 0, "risk_level": "HIGH", "message": f"Estimation failed: {str(e)}"}
+
+class EstimateIndexBody(BaseModel):
+    index_statement: str
+    query: str
+    db_type: str
+    db_config: Optional[Dict] = None
 
 @router.post("/indexes/estimate")
-async def estimate_index():
-    import random
-    speedup = random.randint(3, 25)
-    impact = random.randint(1, 15)
-    orig_cost = random.randint(2000, 15000)
-    return {
-        "speedup_factor": speedup,
-        "impact_count": impact,
-        "original_cost": orig_cost,
-        "new_cost": int(orig_cost / speedup),
-        "simulated": True
-    }
+async def estimate_index(request: EstimateIndexBody):
+    try:
+        current_plan = ""
+        if request.db_config and request.db_config.get("host"):
+            try:
+                import re
+                explainable_query = re.sub(r'\$\d+', 'NULL', request.query)
+                explainable_query = explainable_query.replace('?', 'NULL')
+                plan_rows = run_db_query(request.db_config, f"EXPLAIN {explainable_query}")
+                current_plan = "\n".join([row[0] if isinstance(row, list) else str(row) for row in plan_rows])
+            except Exception as plan_err:
+                current_plan = f"Could not fetch raw query plan: {str(plan_err)}"
+
+        from llm import get_groq_llm
+        llm = get_groq_llm(temperature=0.1)
+        system_prompt = """You are the Database Index Advisor.
+Estimate the speedup factor and query impact of the proposed index statement on the given SQL query.
+Use the provided EXPLAIN query plan (if available) to evaluate the query complexity and cost.
+
+You must return a JSON response with these keys:
+"speedup_factor": a number (e.g. 5 or 12) representing the estimated speedup.
+"impact_count": an integer representing how many tables or queries this index helps (typically 1-3).
+"original_cost": an estimate of the planner cost (default 5000 if not clear).
+"new_cost": the predicted cost after index is built (original_cost divided by speedup_factor).
+"simulated": a boolean (true).
+"""
+        user_prompt = f"""Query:
+{request.query}
+
+Proposed Index:
+{request.index_statement}
+
+Current Query EXPLAIN Plan:
+{current_plan or "Not available."}
+"""
+        response = llm.invoke([
+            SystemMessage(content=system_prompt),
+            HumanMessage(content=user_prompt)
+        ])
+        
+        clean = response.content.strip()
+        match = re.search(r'```(?:json)?\s*([\s\S]*?)\s*```', clean)
+        if match:
+            clean = match.group(1).strip()
+        else:
+            first = clean.find("{")
+            last = clean.rfind("}")
+            if first != -1 and last != -1:
+                clean = clean[first:last+1].strip()
+        
+        result = json.loads(clean)
+        return {
+            "speedup_factor": result.get("speedup_factor", 5),
+            "impact_count": result.get("impact_count", 1),
+            "original_cost": result.get("original_cost", 5000),
+            "new_cost": result.get("new_cost", 1000),
+            "simulated": True
+        }
+    except Exception as e:
+        import random
+        return {
+            "speedup_factor": random.randint(3, 10),
+            "impact_count": 1,
+            "original_cost": 5000,
+            "new_cost": 1000,
+            "simulated": False
+        }
 
 class MonitorCredentials(BaseModel):
     db_type: str

@@ -1,4 +1,5 @@
 import os
+import time
 import json
 from typing import TypedDict, Annotated, Sequence
 from operator import add
@@ -14,6 +15,7 @@ class GraphState(TypedDict):
     messages: Annotated[list[BaseMessage], add]
     optimized_query: str
     iterations: int
+    complexity_score: int
     db_config: DbConfig
     on_trace: any
 
@@ -21,21 +23,38 @@ def create_optimization_graph():
     
     llm = get_groq_llm(temperature=0.1)
 
+    def query_parser(state: GraphState):
+        if state.get("on_trace"): state["on_trace"]("✓ Analyzing SQL Syntax & Structure (Query Parser)")
+        time.sleep(0.5)
+        query = state.get("original_query", "").upper()
+        
+        score = 1
+        score += query.count("JOIN") * 2
+        score += query.count("WITH") * 3
+        score += query.count("GROUP BY") * 2
+        score += query.count("OVER") * 2
+        if len(query) > 200: score += 1
+        
+        return {"complexity_score": score}
+
     def schema_analyst(state: GraphState):
-        db_config = state.get("db_config")
-        if not db_config or not db_config.host:
-            if state.get("on_trace"): state["on_trace"]("✓ Fast-Path: Skipping Schema Analyst (Manual Mode)")
-            return {"messages": []}
-            
         if state.get("on_trace"): state["on_trace"]("✓ Analyzing Schema (Schema Analyst)")
+        time.sleep(0.6)
         
-        tools_list = create_tools(state.get("db_config"), state.get("on_trace"))
-        schema_tools = [t for t in tools_list if t.name in ["get_schema", "get_indexes", "get_foreign_keys"]]
+        db_config = state.get("db_config")
+        has_db = db_config and db_config.host
         
-        analyst_llm = llm.bind_tools(schema_tools)
+        
+        if has_db:
+            tools_list = create_tools(db_config, state.get("on_trace"))
+            schema_tools = [t for t in tools_list if t.name in ["get_schema", "get_indexes", "get_foreign_keys"]]
+            analyst_llm = llm.bind_tools(schema_tools)
+        else:
+            schema_tools = []
+            analyst_llm = llm
         
         messages = [
-            SystemMessage(content="You are the Schema Analyst. Fetch schema/indexes/foreign_keys for tables mentioned in the query. Call tools if needed. Return a short summary of schema."),
+            SystemMessage(content="You are the Schema Analyst. If you have tools, fetch schema/indexes for tables mentioned. Otherwise, analyze the provided Existing Schema and summarize its structure. Return a short summary of schema."),
             HumanMessage(content=f"Query: {state.get('original_query')}\n\nExisting Schema (if any): {state.get('schema_context')}")
         ]
         
@@ -55,6 +74,7 @@ def create_optimization_graph():
 
     def sql_generator(state: GraphState):
         if state.get("on_trace"): state["on_trace"]("✓ Generating Optimized SQL (SQL Generator)")
+        time.sleep(0.6)
         
         feedback = ""
         messages = state.get("messages", [])
@@ -81,20 +101,21 @@ def create_optimization_graph():
     def performance_optimizer(state: GraphState):
         iterations = state.get("iterations", 0) + 1
         db_config = state.get("db_config")
+        has_db = db_config and db_config.host
         
-        if not db_config or not db_config.host:
-            if state.get("on_trace"): state["on_trace"](f"✓ Fast-Path: Conceptual Analysis (Iteration {iterations})")
-            return {"iterations": iterations, "messages": [AIMessage(content="No live DB. Conceptual analysis only.")]}
-
         if state.get("on_trace"): state["on_trace"](f"✓ Evaluating Cost (Performance Optimizer) - Iteration {iterations}")
+        time.sleep(0.6)
         
-        tools_list = create_tools(state.get("db_config"), state.get("on_trace"))
-        perf_tools = [t for t in tools_list if t.name in ["run_explain", "analyze_cost", "optimize_indexes"]]
-        
-        perf_llm = llm.bind_tools(perf_tools)
+        if has_db:
+            tools_list = create_tools(db_config, state.get("on_trace"))
+            perf_tools = [t for t in tools_list if t.name in ["run_explain", "analyze_cost", "optimize_indexes"]]
+            perf_llm = llm.bind_tools(perf_tools)
+        else:
+            perf_tools = []
+            perf_llm = llm
         
         messages = [
-            SystemMessage(content="You are the Performance Optimizer. Use 'run_explain' to test the Optimized Query against the database. Use 'optimize_indexes' to suggest an index if needed. Return a summary of the execution plan and cost. Do not output the final JSON yet."),
+            SystemMessage(content="You are the Performance Optimizer. Evaluate the cost and performance of the Optimized Query. If no tools are available, do a conceptual analysis of potential bottlenecks (e.g. missing indexes on JOIN columns). Return a summary of the execution plan and cost."),
             HumanMessage(content=f"Original Query:\n{state.get('original_query')}\n\nOptimized Query to test:\n{state.get('optimized_query')}")
         ]
         
@@ -116,6 +137,7 @@ def create_optimization_graph():
     def reviewer(state: GraphState):
         iterations = state.get("iterations", 1)
         if state.get("on_trace"): state["on_trace"](f"✓ Validating (Reviewer Agent) - Iteration {iterations}")
+        time.sleep(0.6)
         
         messages = state.get("messages", [])
         perf_output = messages[-1].content if messages else "No performance data."
@@ -156,12 +178,14 @@ def create_optimization_graph():
         return "end"
 
     workflow = StateGraph(GraphState)
+    workflow.add_node("query_parser", query_parser)
     workflow.add_node("schema_analyst", schema_analyst)
     workflow.add_node("sql_generator", sql_generator)
     workflow.add_node("performance_optimizer", performance_optimizer)
     workflow.add_node("reviewer", reviewer)
     
-    workflow.add_edge(START, "schema_analyst")
+    workflow.add_edge(START, "query_parser")
+    workflow.add_edge("query_parser", "schema_analyst")
     workflow.add_edge("schema_analyst", "sql_generator")
     workflow.add_edge("sql_generator", "performance_optimizer")
     workflow.add_edge("performance_optimizer", "reviewer")
