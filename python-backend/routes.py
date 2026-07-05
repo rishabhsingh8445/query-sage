@@ -261,7 +261,8 @@ async def langgraph_optimize(request: SchemaChatBody, user_id: str = Depends(get
         yield "event: status\ndata: \"Generating Result...\"\n\n"
         
         if graph_result["error"]:
-            yield f"event: error\ndata: {json.dumps(f'Optimization failed: {str(graph_result[\"error\"])}')}\n\n"
+            err_msg = f"Optimization failed: {str(graph_result['error'])}"
+            yield f"event: error\ndata: {json.dumps(err_msg)}\n\n"
             yield "event: done\ndata: true\n\n"
             executor.shutdown(wait=False)
             return
