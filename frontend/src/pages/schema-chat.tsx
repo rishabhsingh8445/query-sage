@@ -139,64 +139,16 @@ export default function SchemaChatPage() {
   
   // Schema Builder State
   const [schemaDDL, setSchemaDDL] = useState("");
-  const [nodes, setNodes] = useState<Node[]>([]);
-  const [edges, setEdges] = useState<Edge[]>([]);
+  const [visualizedSchema, setVisualizedSchema] = useState("");
 
-  const onNodesChange = (changes: NodeChange<Node>[]) => setNodes((nds) => applyNodeChanges(changes, nds));
-  const onEdgesChange = (changes: EdgeChange<Edge>[]) => setEdges((eds) => applyEdgeChanges(changes, eds));
+  useEffect(() => {
+    if (view === "schema-builder" && schemaDDL.trim() && !visualizedSchema) {
+      setVisualizedSchema(schemaDDL);
+    }
+  }, [view, schemaDDL, visualizedSchema]);
 
   const generateDiagram = () => {
-    if (!schemaDDL.trim()) {
-      setNodes([]);
-      setEdges([]);
-      return;
-    }
-    const tableRegex = /CREATE TABLE\s+([a-zA-Z0-9_]+)\s*\(([\s\S]*?)\);/gi;
-    const newNodes: Node[] = [];
-    const newEdges: Edge[] = [];
-    let match;
-    let yOffset = 0;
-    let xOffset = 0;
-    while ((match = tableRegex.exec(schemaDDL)) !== null) {
-      const tableName = match[1];
-      const columnsBlock = match[2];
-      const columns = columnsBlock.split(',').map(c => c.trim().split(' ')[0]).filter(c => c && !c.toLowerCase().includes('foreign') && !c.toLowerCase().includes('primary') && !c.toLowerCase().includes('constraint'));
-      newNodes.push({
-        id: tableName,
-        position: { x: xOffset, y: yOffset },
-        data: { 
-          label: (
-            <div className="flex flex-col text-left">
-              <div className="font-bold text-xs bg-indigo-500/20 text-indigo-200 px-2 py-1 rounded-t-md border-b border-indigo-500/30">
-                {tableName}
-              </div>
-              <div className="bg-[#111113] p-2 rounded-b-md text-[10px] text-zinc-400 font-mono">
-                {columns.map((c, i) => <div key={i}>{c}</div>)}
-              </div>
-            </div>
-          ) 
-        },
-        style: { background: 'transparent', border: '1px solid rgba(99, 102, 241, 0.2)', borderRadius: '6px', padding: 0, width: 150 }
-      });
-      const fkRegex = /FOREIGN KEY\s*\([^\)]+\)\s*REFERENCES\s+([a-zA-Z0-9_]+)/gi;
-      let fkMatch;
-      while ((fkMatch = fkRegex.exec(columnsBlock)) !== null) {
-        newEdges.push({
-          id: `e-${tableName}-${fkMatch[1]}`,
-          source: tableName,
-          target: fkMatch[1],
-          animated: true,
-          style: { stroke: '#8b5cf6' }
-        });
-      }
-      xOffset += 200;
-      if (xOffset > 600) {
-        xOffset = 0;
-        yOffset += 150;
-      }
-    }
-    setNodes(newNodes);
-    setEdges(newEdges);
+    setVisualizedSchema(schemaDDL);
   };
   
   useEffect(() => {
@@ -1027,7 +979,7 @@ export default function SchemaChatPage() {
                </CardHeader>
                <CardContent className="p-0 flex-1 min-h-0 bg-[#0a0a0c] relative">
                  <SchemaErd 
-                   schemaText={schemaDDL} 
+                   schemaText={visualizedSchema} 
                    onTableAction={(tableName, actionPrompt) => {
                      setRawSql(`SELECT * FROM ${tableName};`);
                      setSchemaContext(schemaDDL);
