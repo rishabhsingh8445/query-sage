@@ -301,7 +301,12 @@ async def langgraph_optimize(request: SchemaChatBody, user_id: str = Depends(get
                     original_query=request.raw_query,
                     optimized_query=llm_result.get("optimized_query", ""),
                     explanation=llm_result.get("explanation", ""),
-                    db_type=request.db_type
+                    bottlenecks=llm_result.get("bottlenecks", []),
+                    suggested_indexes=llm_result.get("suggested_indexes", []),
+                    estimated_improvement=llm_result.get("estimated_improvement", ""),
+                    execution_plan_summary=llm_result.get("execution_plan_summary", ""),
+                    query_complexity_score=llm_result.get("query_complexity_score"),
+                    db_type=request.db_type or "PostgreSQL"
                 )
                 db.add(history)
                 db.commit()
