@@ -142,19 +142,20 @@ def create_optimization_graph():
         messages = state.get("messages", [])
         perf_output = messages[-1].content if messages else "No performance data."
         
-        sys_msg = SystemMessage(content='''You are the Reviewer Agent. 
-1. Review the performance data. 
+        sys_msg = SystemMessage(content='''You are the Lead Database Administrator and Senior Reviewer Agent.
+1. Review the performance cost and schema context.
 2. If the query is fundamentally flawed, slow, or incorrect, return the exact phrase "HIGH_COST_REWRITE" followed by a detailed reason why it failed so the generator can learn.
-3. Otherwise, return a JSON block EXACTLY matching this structure:
+3. Otherwise, you MUST return a JSON block matching this structure:
 {
-  "optimized_query": "<the final rewritten SQL>",
-  "explanation": "<detailed explanation of changes>",
+  "optimized_query": "<the final rewritten SQL query, formatted nicely>",
+  "explanation": "# 📊 QUERY PERFORMANCE OPTIMIZATION REPORT\\n\\n### 1. Executive Summary\\n- **Initial Complexity:** <Describe initial query complexity, referencing tables/joins>\\n- **Primary Issue:** <State main issue, e.g., nested subqueries, unindexed join scans>\\n- **Estimated Speedup:** <Estimated speedup multiplier, e.g. 5x-10x improvement>\\n\\n### 2. Identified Bottlenecks\\n- ⚠️ **[Bottleneck 1]** - <Describe table scan or filter issue in detail, referencing exact columns>\\n- ⚠️ **[Bottleneck 2]** - <Describe join or group by bottleneck>\\n\\n### 3. Applied Optimizations\\n- **[Optimization 1]** - <Describe the specific SQL rewrite done (like CTE elimination or aggregate simplification) and why it improves speed>\\n- **[Optimization 2]** - <Describe another change like removing correlated subqueries or using window functions optimally>\\n\\n### 4. Architectural Impact\\n- <Explain how these changes affect temporary tables, memory usage, and CPU cycles in professional DBA terms>\\n",
   "bottlenecks": [{"type": "SEQ_SCAN", "table": "...", "description": "...", "severity": "HIGH"}],
   "suggested_indexes": [{"statement": "CREATE INDEX...", "reason": "..."}],
   "estimated_improvement": "...",
   "execution_plan_summary": "...",
   "query_complexity_score": 85
-}''')
+}
+Make sure all text under "explanation" is written in professional DBA terminology, referencing exact table names and column names from the input query. Keep the tone technical, clean, and highly details-oriented.''')
         human_prompt = f"Original Query:\n{state.get('original_query')}\n\nOptimized Query:\n{state.get('optimized_query')}\n\nPerformance Output:\n{perf_output}"
         
         if iterations >= 2:
