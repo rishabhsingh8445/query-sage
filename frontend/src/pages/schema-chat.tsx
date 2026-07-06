@@ -45,50 +45,7 @@ export default function SchemaChatPage() {
   const [optimizationResult, setOptimizationResult] = useState<any>(null);
   const [traces, setTraces] = useState<string[]>([]);
   const [streamStatus, setStreamStatus] = useState("");
-  const [roomId, setRoomId] = useState<string | null>(null);
-  const wsRef = useRef<any>(null);
-  const isIncomingEdit = useRef(false);
 
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const rId = params.get("room");
-    let ws: WebSocket | null = null;
-    if (rId) {
-      setRoomId(rId);
-      const wsScheme = window.location.protocol === "https:" ? "wss" : "ws";
-      const baseHost = window.location.host;
-      const wsUrl = `${wsScheme}://${baseHost.includes("localhost") || baseHost.includes("127.0.0.1") ? "localhost:8000" : baseHost}/api/ws/collaboration/${rId}`;
-      ws = new WebSocket(wsUrl);
-      wsRef.current = ws;
-
-      ws.onmessage = (event) => {
-        try {
-          const data = JSON.parse(event.data);
-          if (data.type === "sql-update") {
-            isIncomingEdit.current = true;
-            setRawSql(data.sql);
-            setTimeout(() => {
-              isIncomingEdit.current = false;
-            }, 50);
-          }
-        } catch (e) {
-          console.error("Websocket parsing error", e);
-        }
-      };
-    }
-    return () => {
-      if (ws) ws.close();
-    };
-  }, []);
-
-  useEffect(() => {
-    if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN && !isIncomingEdit.current && rawSql) {
-      wsRef.current.send(JSON.stringify({
-        type: "sql-update",
-        sql: rawSql
-      }));
-    }
-  }, [rawSql]);
   const [isEstimating, setIsEstimating] = useState(false);
   const [estimateResult, setEstimateResult] = useState<{ cost: number, rows: number, risk_level: string, message: string } | null>(null);
 
@@ -687,41 +644,15 @@ export default function SchemaChatPage() {
             {/* Left Pane: Input */}
             <Card className="bg-[#111113]/80 border-zinc-800/50 backdrop-blur-xl flex flex-col shadow-xl overflow-hidden h-full min-h-0">
                <CardHeader className="border-b border-zinc-800/50 py-3 px-4 bg-black/20 shrink-0 flex flex-row items-center justify-between">
-                 <div className="flex items-center gap-4">
-                   <CardTitle className="text-base text-zinc-100 flex items-center gap-2">
-                     <Code2 className="w-5 h-5 text-indigo-400" /> Optimizer Context
-                   </CardTitle>
-                   {roomId ? (
-                     <Badge variant="secondary" className="bg-amber-500/10 text-amber-500 border-amber-500/20 font-mono text-[9px] flex items-center gap-1.5 h-6">
-                       <span className="relative flex h-1.5 w-1.5">
-                         <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-500 opacity-75"></span>
-                         <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-amber-500"></span>
-                       </span>
-                       Live Room: {roomId}
-                     </Badge>
-                   ) : (
-                     <Button 
-                       variant="outline" 
-                       size="sm" 
-                       type="button"
-                       className="h-6 text-[10px] px-2 border-indigo-500/30 text-indigo-400 hover:bg-indigo-500/10 font-semibold"
-                       onClick={() => {
-                         const newRoom = Math.random().toString(36).substring(2, 9);
-                         window.history.pushState({}, "", `?room=${newRoom}&view=sql-optimizer`);
-                         setRoomId(newRoom);
-                         toast.success("Collaborative Room Created! Share URL with colleagues.");
-                       }}
-                     >
-                       Collaborate Live
-                     </Button>
-                   )}
-                 </div>
-                 <div className="flex gap-2">
+                 <CardTitle className="text-base text-zinc-100 flex items-center gap-2">
+                   <Code2 className="w-5 h-5 text-indigo-400" /> Optimizer Context
+                 </CardTitle>
+                 <div className="flex items-center gap-2">
                    <Sheet open={isHistoryOpen} onOpenChange={setIsHistoryOpen}>
                      <SheetTrigger asChild>
-                       <Button variant="outline" size="sm" className="h-8 bg-black/40 border-zinc-700 text-xs text-zinc-300 hover:text-white">
-                         <Clock className="w-3.5 h-3.5 mr-2" />
-                         History
+                       <Button variant="outline" size="sm" className="h-8 bg-black/40 border-zinc-700 text-xs text-zinc-300 hover:text-white flex items-center gap-1.5 px-3">
+                         <Clock className="w-3.5 h-3.5" />
+                         <span>History</span>
                        </Button>
                      </SheetTrigger>
                      <SheetContent className="w-[400px] sm:w-[540px] bg-[#0a0a0c]/95 border-l border-zinc-800 backdrop-blur-xl overflow-y-auto custom-scrollbar">
@@ -788,7 +719,7 @@ export default function SchemaChatPage() {
                    </Sheet>
 
                    <Select value={dialect} onValueChange={setDialect}>
-                     <SelectTrigger className="w-[120px] h-8 bg-black/40 border-zinc-700 text-xs">
+                     <SelectTrigger className="w-[110px] h-8 bg-black/40 border-zinc-700 text-xs text-zinc-300 focus:ring-0 focus:ring-offset-0">
                        <SelectValue placeholder="Dialect" />
                      </SelectTrigger>
                      <SelectContent>
@@ -801,7 +732,7 @@ export default function SchemaChatPage() {
                    </Select>
                    
                    <Select value={optimizationGoal} onValueChange={setOptimizationGoal}>
-                     <SelectTrigger className="w-[140px] h-8 bg-black/40 border-zinc-700 text-xs">
+                     <SelectTrigger className="w-[135px] h-8 bg-black/40 border-zinc-700 text-xs text-zinc-300 focus:ring-0 focus:ring-offset-0">
                        <SelectValue placeholder="Goal" />
                      </SelectTrigger>
                      <SelectContent>

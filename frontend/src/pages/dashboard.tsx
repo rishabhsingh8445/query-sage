@@ -127,51 +127,6 @@ export default function DashboardPage() {
   const [isEstimating, setIsEstimating] = useState(false);
   const [estimateResult, setEstimateResult] = useState<{ cost: number, rows: number, risk_level: string, message: string } | null>(null);
   const [traces, setTraces] = useState<string[]>([]);
-  const [roomId, setRoomId] = useState<string | null>(null);
-  const wsRef = useRef<WebSocket | null>(null);
-  const isIncomingEdit = useRef<boolean>(false);
-
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const rId = params.get("room");
-    let ws: WebSocket | null = null;
-    if (rId) {
-      setRoomId(rId);
-      const wsScheme = window.location.protocol === "https:" ? "wss" : "ws";
-      const baseHost = window.location.host;
-      const wsUrl = `${wsScheme}://${baseHost.includes("localhost") || baseHost.includes("127.0.0.1") ? "localhost:8000" : baseHost}/api/ws/collaboration/${rId}`;
-      ws = new WebSocket(wsUrl);
-      wsRef.current = ws;
-
-      ws.onmessage = (event) => {
-        try {
-          const data = JSON.parse(event.data);
-          if (data.type === "sql-update") {
-            isIncomingEdit.current = true;
-            form.setValue("query", data.sql);
-            setTimeout(() => {
-              isIncomingEdit.current = false;
-            }, 50);
-          }
-        } catch (e) {
-          console.error("Websocket parsing error", e);
-        }
-      };
-    }
-    return () => {
-      if (ws) ws.close();
-    };
-  }, [form]);
-
-  const watchQuery = form.watch("query");
-  useEffect(() => {
-    if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN && !isIncomingEdit.current && watchQuery) {
-      wsRef.current.send(JSON.stringify({
-        type: "sql-update",
-        sql: watchQuery
-      }));
-    }
-  }, [watchQuery]);
 
   useEffect(() => {
     const prefillQuery = sessionStorage.getItem('prefillQuery');
@@ -485,33 +440,7 @@ export default function DashboardPage() {
             Query Editor
           </div>
           <div className="flex items-center gap-2">
-            {roomId ? (
-              <Badge variant="secondary" className="bg-amber-500/10 text-amber-500 border-amber-500/20 font-mono text-[9px] flex items-center gap-1.5 h-6">
-                <span className="relative flex h-1.5 w-1.5">
-                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-500 opacity-75"></span>
-                  <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-amber-500"></span>
-                </span>
-                Live Room: {roomId}
-              </Badge>
-            ) : (
-              <Button 
-                variant="outline" 
-                size="sm" 
-                type="button"
-                className="h-6 text-[10px] px-2 border-primary/20 text-primary hover:bg-primary/5 font-semibold"
-                onClick={() => {
-                  const newRoom = Math.random().toString(36).substring(2, 9);
-                  window.history.pushState({}, "", `?room=${newRoom}`);
-                  setRoomId(newRoom);
-                  toast({
-                    title: "Collaborative Room Created",
-                    description: "Share this browser URL to edit query SQL in real-time together!",
-                  });
-                }}
-              >
-                Collaborate Live
-              </Button>
-            )}
+
             <Badge variant="outline" className="bg-background font-mono text-[10px] h-6 flex items-center">
               {watchDbType.toUpperCase()}
             </Badge>
