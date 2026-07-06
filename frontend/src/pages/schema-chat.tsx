@@ -9,7 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ArrowLeft, Database, Code2, Zap, SearchCode, Loader2, Activity, Network, Play, Clock, Trash2, Bot, Brain, Cpu, Shield, FileCheck, CheckCircle2, CircleDot, Calculator, ShieldAlert } from "lucide-react";
+import { ArrowLeft, Database, Code2, Zap, SearchCode, Loader2, Activity, Network, Play, Clock, Trash2, Bot, Brain, Cpu, Shield, FileCheck, CheckCircle2, CircleDot, Calculator, ShieldAlert, Sparkles } from "lucide-react";
 import { IndexEstimator } from "@/components/IndexEstimator";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger, SheetDescription } from "@/components/ui/sheet";
 import { useGetHistory, useDeleteHistoryEntry, getGetHistoryQueryKey, useGetHistoryEntry } from "@workspace/api-client-react";
@@ -142,6 +142,34 @@ export default function SchemaChatPage() {
   const [schemaDDL, setSchemaDDL] = useState("");
   const [visualizedSchema, setVisualizedSchema] = useState("");
   const hasPrefilledSchema = useRef(false);
+  const [copilotPrompt, setCopilotPrompt] = useState("");
+  const [isGeneratingDDL, setIsGeneratingDDL] = useState(false);
+
+  const handleGenerateDDL = async () => {
+    if (!copilotPrompt.trim()) return;
+    setIsGeneratingDDL(true);
+    try {
+      const response = await fetch(`${import.meta.env.VITE_API_URL || ""}/api/schema/generate`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ prompt: copilotPrompt })
+      });
+      if (!response.ok) {
+        const d = await response.json().catch(() => ({}));
+        throw new Error(d.detail || "Generation failed.");
+      }
+      const data = await response.json();
+      setSchemaDDL(data.ddl);
+      setVisualizedSchema(data.ddl);
+      setCopilotPrompt("");
+      toast.success("DDL Schema generated and visualized successfully!");
+    } catch (e: any) {
+      toast.error(`DDL Generation failed: ${e.message}`);
+    } finally {
+      setIsGeneratingDDL(false);
+    }
+  };
+
 
   useEffect(() => {
     if (view === "schema-builder" && schemaDDL.trim() && !hasPrefilledSchema.current) {
@@ -901,6 +929,51 @@ export default function SchemaChatPage() {
                      </div>
                   ) : outputViewMode === "explanation" ? (
                      <div className="flex flex-col gap-6 overflow-y-auto custom-scrollbar p-6 h-full">
+                         {/* Visual Cost Reduction Comparison */}
+                         {optimizationResult?.original_cost !== undefined && (
+                           <div className="bg-zinc-950/40 border border-zinc-800/60 rounded-xl p-4.5 space-y-3 shadow-xl shrink-0">
+                             <div className="flex items-center justify-between">
+                               <div className="flex items-center gap-2">
+                                 <Activity className="w-4 h-4 text-emerald-400" />
+                                 <h4 className="text-xs font-semibold text-zinc-300 font-mono tracking-wide uppercase">AI Cost Efficiency Evaluation</h4>
+                               </div>
+                               <Badge className="bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-bold font-mono px-2 py-0.5 text-[10px]">
+                                 {optimizationResult.original_cost > 0 && optimizationResult.new_cost !== undefined ? (
+                                   `${Math.round(((optimizationResult.original_cost - optimizationResult.new_cost) / optimizationResult.original_cost) * 100)}% Cost Reduction`
+                                 ) : (
+                                   "Cost Savings Activated"
+                                 )}
+                               </Badge>
+                             </div>
+                             
+                             <div className="space-y-2">
+                               {/* Cost Bar */}
+                               <div className="relative w-full h-3 bg-red-500/10 border border-red-500/20 rounded-full overflow-hidden flex shadow-[inset_0_1px_3px_rgba(0,0,0,0.5)]">
+                                 {/* New Cost portion (saving bar) */}
+                                 <div 
+                                   style={{ 
+                                     width: optimizationResult.original_cost > 0 && optimizationResult.new_cost !== undefined ? (
+                                       `${Math.max(8, Math.min(95, (optimizationResult.new_cost / optimizationResult.original_cost) * 100))}%`
+                                     ) : "30%" 
+                                   }} 
+                                   className="h-full bg-emerald-500 rounded-full border-r border-emerald-400 shadow-[0_0_10px_rgba(16,185,129,0.5)] transition-all duration-1000"
+                                 />
+                               </div>
+                               
+                               <div className="flex justify-between items-center text-[10px] font-mono text-zinc-500 px-1">
+                                 <div className="flex items-center gap-1">
+                                   <span className="w-1.5 h-1.5 bg-red-400 rounded-full shrink-0" />
+                                   <span>Before Optimization Cost: <strong className="text-red-400/90">{optimizationResult.original_cost}</strong></span>
+                                 </div>
+                                 <div className="flex items-center gap-1">
+                                   <span className="w-1.5 h-1.5 bg-emerald-400 rounded-full shrink-0 animate-ping" />
+                                   <span>Optimized Target Cost: <strong className="text-emerald-400">{optimizationResult.new_cost || "N/A"}</strong></span>
+                                 </div>
+                               </div>
+                             </div>
+                           </div>
+                         )}
+
                         <div className="prose prose-sm md:prose-base dark:prose-invert max-w-none prose-p:leading-loose prose-pre:bg-[#050505] prose-pre:border prose-pre:border-zinc-800/80 prose-pre:rounded-xl font-light tracking-wide text-zinc-200">
                            <ReactMarkdown>{optimizedOutput}</ReactMarkdown>
                         </div>
@@ -1096,13 +1169,20 @@ export default function SchemaChatPage() {
                                       <TableCell className="text-red-400 font-medium py-3">{q.execution_time_ms?.toFixed(2)}</TableCell>
                                       <TableCell className="text-zinc-300 py-3">{q.calls}</TableCell>
                                       <TableCell className="text-right py-3">
-                                         <Button size="sm" variant="outline" className="border-indigo-500/50 hover:bg-indigo-500/20 text-indigo-300 h-7 px-3 text-xs" onClick={() => {
-                                            setRawSql(q.query);
-                                            setView("sql-optimizer");
-                                            setTimeout(() => handleOptimize(q.query), 300);
-                                         }}>
-                                            Optimize
-                                         </Button>
+                                          <Button 
+                                            size="sm" 
+                                            variant="outline" 
+                                            className="border-indigo-500/40 bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-300 h-7 px-3 text-xs flex items-center gap-1.5 shadow-[0_0_12px_rgba(99,102,241,0.25)]" 
+                                            onClick={() => {
+                                              setRawSql(q.query);
+                                              setSchemaContext(schemaDDL);
+                                              setView("sql-optimizer");
+                                              setTimeout(() => handleOptimize(q.query), 300);
+                                            }}
+                                          >
+                                            <Sparkles className="w-3 h-3 text-indigo-400" />
+                                            <span>AI Optimize</span>
+                                          </Button>
                                       </TableCell>
                                    </TableRow>
                                 )) : (

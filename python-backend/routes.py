@@ -1049,3 +1049,80 @@ async def websocket_endpoint(websocket: WebSocket, room_id: str):
     except Exception:
         manager.disconnect(websocket, room_id)
 
+
+class DiscussSchemaBody(BaseModel):
+    table_name: str
+    schema_ddl: str
+    message: str
+    chat_history: Optional[List[Dict[str, str]]] = []
+
+@router.post("/schema/discuss")
+async def discuss_schema(request: DiscussSchemaBody):
+    from llm import get_groq_llm
+    from langchain_core.messages import SystemMessage, HumanMessage, AIMessage
+    
+    llm = get_groq_llm(temperature=0.2)
+    
+    history_messages = []
+    if request.chat_history:
+        for msg in request.chat_history:
+            role = msg.get("role", "user")
+            content = msg.get("content", "")
+            if role == "user":
+                history_messages.append(HumanMessage(content=content))
+            else:
+                history_messages.append(AIMessage(content=content))
+                
+    system_prompt = f"""You are an expert Database Administrator (DBA) AI assistant.
+You are helping the user analyze and optimize the table `{request.table_name}`.
+
+Here is the current Schema Context (DDL):
+```sql
+{request.schema_ddl}
+```
+
+Answer the user's question about the table `{request.table_name}`. 
+Keep your response concise, clear, and action-oriented. Provide exact SQL statements or indexing guidelines when relevant, formatted in markdown blocks. Do not explain unrelated tables unless requested."""
+
+    messages = [SystemMessage(content=system_prompt)] + history_messages + [HumanMessage(content=request.message)]
+    
+    async def response_stream():
+        try:
+            async for chunk in llm.astream(messages):
+                if chunk.content:
+                    yield chunk.content
+        except Exception as e:
+            yield f"Error discussing schema: {str(e)}"
+            
+    return StreamingResponse(response_stream(), media_type="text/plain")
+
+class GenerateSchemaBody(BaseModel):
+    prompt: str
+
+@router.post("/schema/generate")
+async def generate_schema(request: GenerateSchemaBody):
+    from llm import get_groq_llm
+    from langchain_core.messages import SystemMessage, HumanMessage
+    
+    llm = get_groq_llm(temperature=0.2)
+    
+    system_prompt = """You are an expert Database Architect.
+Convert the user's natural language request into a clean, formatted SQL CREATE TABLE DDL.
+Return ONLY valid, standard SQL DDL statements (e.g. CREATE TABLE) in plain text.
+Do NOT output any markdown syntax, backticks, or explanation. Only raw SQL DDL code."""
+
+    messages = [
+        SystemMessage(content=system_prompt),
+        HumanMessage(content=request.prompt)
+    ]
+    try:
+        response = llm.invoke(messages)
+        clean = response.content.strip()
+        import re
+        match = re.search(r'```(?:sql)?\s*([\s\S]*?)\s*```', clean)
+        if match:
+            clean = match.group(1).strip()
+        return {"ddl": clean}
+    except Exception as e:
+        from fastapi import HTTPException
+        raise HTTPException(status_code=500, detail=f"Generation failed: {str(e)}")
