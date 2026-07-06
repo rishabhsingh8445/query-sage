@@ -97,58 +97,6 @@ export default function DashboardPage() {
   const [rawLlmContent, setRawLlmContent] = useState(cachedRawLlmContent);
   const [streamBottlenecks, setStreamBottlenecks] = useState<Bottleneck[]>(cachedStreamBottlenecks);
   const [rawExplain, setRawExplain] = useState<string>(cachedRawExplain);
-  const [executionError, setExecutionError] = useState<string | null>(null);
-  const [explanationResult, setExplanationResult] = useState<{explanation: string, corrected_query: string} | null>(null);
-  const [isExplaining, setIsExplaining] = useState(false);
-  const [isEstimating, setIsEstimating] = useState(false);
-  const [estimateResult, setEstimateResult] = useState<{ cost: number, rows: number, risk_level: string, message: string } | null>(null);
-  const [traces, setTraces] = useState<string[]>([]);
-  const [roomId, setRoomId] = useState<string | null>(null);
-  const wsRef = useRef<WebSocket | null>(null);
-  const isIncomingEdit = useRef<boolean>(false);
-
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const rId = params.get("room");
-    if (rId) {
-      setRoomId(rId);
-      const wsScheme = window.location.protocol === "https:" ? "wss" : "ws";
-      const baseHost = window.location.host;
-      const wsUrl = `${wsScheme}://${baseHost.includes("localhost") || baseHost.includes("127.0.0.1") ? "localhost:8000" : baseHost}/api/ws/collaboration/${rId}`;
-      const ws = new WebSocket(wsUrl);
-      wsRef.current = ws;
-
-      ws.onmessage = (event) => {
-        try {
-          const data = JSON.parse(event.data);
-          if (data.type === "sql-update") {
-            isIncomingEdit.current = true;
-            form.setValue("query", data.sql);
-            setTimeout(() => {
-              isIncomingEdit.current = false;
-            }, 50);
-          }
-        } catch (e) {
-          console.error("Websocket parsing error", e);
-        }
-      };
-
-      return () => {
-        ws.close();
-      };
-    }
-  }, [form]);
-
-  const watchQuery = form.watch("query");
-  useEffect(() => {
-    if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN && !isIncomingEdit.current && watchQuery) {
-      wsRef.current.send(JSON.stringify({
-        type: "sql-update",
-        sql: watchQuery
-      }));
-    }
-  }, [watchQuery]);
-  
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const { getToken } = useAuth();
@@ -172,6 +120,58 @@ export default function DashboardPage() {
       explain_output: "",
     },
   });
+
+  const [executionError, setExecutionError] = useState<string | null>(null);
+  const [explanationResult, setExplanationResult] = useState<{explanation: string, corrected_query: string} | null>(null);
+  const [isExplaining, setIsExplaining] = useState(false);
+  const [isEstimating, setIsEstimating] = useState(false);
+  const [estimateResult, setEstimateResult] = useState<{ cost: number, rows: number, risk_level: string, message: string } | null>(null);
+  const [traces, setTraces] = useState<string[]>([]);
+  const [roomId, setRoomId] = useState<string | null>(null);
+  const wsRef = useRef<WebSocket | null>(null);
+  const isIncomingEdit = useRef<boolean>(false);
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const rId = params.get("room");
+    let ws: WebSocket | null = null;
+    if (rId) {
+      setRoomId(rId);
+      const wsScheme = window.location.protocol === "https:" ? "wss" : "ws";
+      const baseHost = window.location.host;
+      const wsUrl = `${wsScheme}://${baseHost.includes("localhost") || baseHost.includes("127.0.0.1") ? "localhost:8000" : baseHost}/api/ws/collaboration/${rId}`;
+      ws = new WebSocket(wsUrl);
+      wsRef.current = ws;
+
+      ws.onmessage = (event) => {
+        try {
+          const data = JSON.parse(event.data);
+          if (data.type === "sql-update") {
+            isIncomingEdit.current = true;
+            form.setValue("query", data.sql);
+            setTimeout(() => {
+              isIncomingEdit.current = false;
+            }, 50);
+          }
+        } catch (e) {
+          console.error("Websocket parsing error", e);
+        }
+      };
+    }
+    return () => {
+      if (ws) ws.close();
+    };
+  }, [form]);
+
+  const watchQuery = form.watch("query");
+  useEffect(() => {
+    if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN && !isIncomingEdit.current && watchQuery) {
+      wsRef.current.send(JSON.stringify({
+        type: "sql-update",
+        sql: watchQuery
+      }));
+    }
+  }, [watchQuery]);
 
   useEffect(() => {
     const prefillQuery = sessionStorage.getItem('prefillQuery');

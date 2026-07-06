@@ -1,5 +1,6 @@
 import { motion, AnimatePresence } from "framer-motion";
 import { Terminal, Database, Code, ShieldAlert, Cpu, Sparkles, CheckCircle2, RefreshCw } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
 
 interface AgentSwarmProps {
   traces: string[];

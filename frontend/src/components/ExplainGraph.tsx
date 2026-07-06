@@ -124,8 +124,8 @@ const nodeTypes = {
 };
 
 export function ExplainGraph({ rootNode }: ExplainGraphProps) {
-  const [nodes, setNodes, onNodesChange] = useNodesState([]);
-  const [edges, setEdges, onEdgesChange] = useEdgesState([]);
+  const [nodes, setNodes, onNodesChange] = useNodesState<Node>([]);
+  const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([]);
   const [selectedExplainNode, setSelectedExplainNode] = useState<ExplainNode | null>(null);
 
   const parsedGraph = useMemo(() => {

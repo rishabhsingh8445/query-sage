@@ -10,7 +10,8 @@ import {
   addEdge,
   Connection,
   Edge,
-  MarkerType
+  MarkerType,
+  Node
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
 import { TableNode } from '@/components/TableNode';
@@ -70,11 +71,12 @@ import { useAppStore } from '@/store/useAppStore';
 
 export default function BuilderPage() {
   const { parsedNodes } = useAppStore();
-  const [nodes, setNodes, onNodesChange] = useNodesState(parsedNodes && parsedNodes.length > 0 ? parsedNodes : initialNodes);
+  const [nodes, setNodes, onNodesChange] = useNodesState<Node>(parsedNodes && parsedNodes.length > 0 ? parsedNodes : initialNodes);
   const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([]);
   const [generatedSql, setGeneratedSql] = useState("");
   const [activeTab, setActiveTab] = useState<"export" | "import">("export");
   const [importSqlText, setImportSqlText] = useState("");
+  const [showInstructions, setShowInstructions] = useState(true);
   const [, setLocation] = useLocation();
 
   useEffect(() => {

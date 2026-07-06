@@ -51,12 +51,13 @@ export default function SchemaChatPage() {
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const rId = params.get("room");
+    let ws: WebSocket | null = null;
     if (rId) {
       setRoomId(rId);
       const wsScheme = window.location.protocol === "https:" ? "wss" : "ws";
       const baseHost = window.location.host;
       const wsUrl = `${wsScheme}://${baseHost.includes("localhost") || baseHost.includes("127.0.0.1") ? "localhost:8000" : baseHost}/api/ws/collaboration/${rId}`;
-      const ws = new WebSocket(wsUrl);
+      ws = new WebSocket(wsUrl);
       wsRef.current = ws;
 
       ws.onmessage = (event) => {
@@ -73,11 +74,10 @@ export default function SchemaChatPage() {
           console.error("Websocket parsing error", e);
         }
       };
-
-      return () => {
-        ws.close();
-      };
     }
+    return () => {
+      if (ws) ws.close();
+    };
   }, []);
 
   useEffect(() => {

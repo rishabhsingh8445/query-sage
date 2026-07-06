@@ -94,7 +94,7 @@ function buildErdEdges(nodes: Node[], schemaText: string): Edge[] {
   // Pattern 3: Heuristic mapping for standard conventions (e.g. user_id -> users table)
   nodes.forEach(node => {
     const tableName = node.id;
-    const columns = node.data.columns || [];
+    const columns = (node.data as any).columns || [];
     columns.forEach((col: any) => {
       // Connect user_id to users or items
       if (col.name.endsWith("_id")) {
@@ -133,8 +133,8 @@ function buildErdEdges(nodes: Node[], schemaText: string): Edge[] {
 }
 
 export function SchemaErd({ schemaText, onTableAction }: SchemaErdProps) {
-  const [nodes, setNodes, onNodesChange] = useNodesState([]);
-  const [edges, setEdges, onEdgesChange] = useEdgesState([]);
+  const [nodes, setNodes, onNodesChange] = useNodesState<Node>([]);
+  const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([]);
   const [selectedTable, setSelectedTable] = useState<string | null>(null);
 
   const graphData = useMemo(() => {
