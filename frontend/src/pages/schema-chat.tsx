@@ -912,10 +912,87 @@ export default function SchemaChatPage() {
                          <p className="text-zinc-600 text-xs mt-1">Run optimization to deploy the agent swarm</p>
                        </div>
                      </div>
-                  ) : isOptimizing && !optimizedOutput ? (
-                     <div className="h-full p-5 overflow-y-auto custom-scrollbar">
-                       <AgentSwarm traces={traces} status={streamStatus || "Agent Swarm Active"} />
-                     </div>
+                  ) : isOptimizing ? (
+                      <div className="h-full flex flex-col p-5 overflow-y-auto custom-scrollbar">
+                        <div className="flex items-center justify-between gap-2 mb-5">
+                          <div className="flex items-center gap-2">
+                            <div className="relative">
+                              <div className="w-2 h-2 rounded-full bg-indigo-400 animate-pulse"></div>
+                              <div className="absolute inset-0 w-2 h-2 rounded-full bg-indigo-400 animate-ping"></div>
+                            </div>
+                            <span className="text-xs font-semibold text-indigo-400 uppercase tracking-widest">Agent Swarm Active</span>
+                          </div>
+                          {streamStatus && (
+                            <span className="font-mono text-[10px] text-zinc-500 bg-zinc-900/60 border border-zinc-800/60 px-2 py-0.5 rounded">
+                              {streamStatus}
+                            </span>
+                          )}
+                        </div>
+                        <div className="flex flex-col gap-3">
+                          {agents.map((agent: any, idx: number) => (
+                            <div
+                              key={agent.id}
+                              className={`relative flex items-center gap-4 p-4 rounded-xl border transition-all duration-500 ${
+                                agent.status === "working"
+                                  ? "bg-indigo-500/5 border-indigo-500/30 shadow-[0_0_20px_rgba(99,102,241,0.08)]"
+                                  : agent.status === "done"
+                                  ? "bg-emerald-500/5 border-emerald-500/20"
+                                  : "bg-zinc-900/30 border-zinc-800/40 opacity-50"
+                              }`}
+                            >
+                              <div className={`w-10 h-10 rounded-lg flex items-center justify-center shrink-0 transition-all duration-500 ${
+                                agent.status === "working"
+                                  ? "bg-indigo-500/15 text-indigo-400 shadow-[0_0_12px_rgba(99,102,241,0.2)]"
+                                  : agent.status === "done"
+                                  ? "bg-emerald-500/15 text-emerald-400"
+                                  : "bg-zinc-800/50 text-zinc-600"
+                              }`}>
+                                {agent.status === "done" ? <CheckCircle2 className="w-5 h-5" /> : agent.icon}
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center gap-2">
+                                  <span className={`text-sm font-semibold transition-colors duration-300 ${
+                                    agent.status === "working" ? "text-indigo-300" : agent.status === "done" ? "text-emerald-300" : "text-zinc-500"
+                                  }`}>{agent.name}</span>
+                                  {agent.status === "working" && (
+                                    <Loader2 className="w-3 h-3 text-indigo-400 animate-spin" />
+                                  )}
+                                </div>
+                                <p className={`text-xs mt-0.5 transition-colors duration-300 ${
+                                  agent.status === "working" ? "text-zinc-400" : agent.status === "done" ? "text-zinc-500" : "text-zinc-700"
+                                }`}>{agent.description}</p>
+                                {agent.status === "working" && (
+                                  <div className="mt-2 h-1 w-full bg-zinc-800 rounded-full overflow-hidden">
+                                    <div className="h-full bg-gradient-to-r from-indigo-500 via-violet-500 to-indigo-500 rounded-full animate-progress-indeterminate"></div>
+                                  </div>
+                                )}
+                              </div>
+                              <div className={`text-[10px] uppercase tracking-wider font-bold px-2 py-1 rounded-md shrink-0 ${
+                                agent.status === "working"
+                                  ? "bg-indigo-500/10 text-indigo-400"
+                                  : agent.status === "done"
+                                  ? "bg-emerald-500/10 text-emerald-400"
+                                  : "bg-zinc-800/50 text-zinc-600"
+                              }`}>
+                                {agent.status === "working" ? "Running" : agent.status === "done" ? "Done" : "Queued"}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                        {traces.length > 0 && (
+                          <div className="mt-4 border-t border-zinc-800/50 pt-4 flex flex-col gap-2">
+                            <span className="font-mono text-[9px] text-zinc-600 uppercase tracking-widest">Trace Logs</span>
+                            <div className="bg-black/40 border border-zinc-800/60 rounded-lg p-3 font-mono text-[10px] text-zinc-400 max-h-[120px] overflow-y-auto custom-scrollbar flex flex-col gap-1">
+                              {traces.slice(-3).map((trace: string, i: number) => (
+                                <div key={i} className="truncate">
+                                  <span className="text-indigo-400 mr-2">&gt;</span>
+                                  {trace}
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </div>
                   ) : outputViewMode === "visual" ? (
                      <div className="h-full p-4 overflow-y-auto custom-scrollbar flex flex-col gap-4 bg-[#0a0a0c]">
                        <ExplainGraph rootNode={parseRawExplainToTree(explainPlan || (optimizationResult && optimizationResult.execution_plan_summary) || "")} />
