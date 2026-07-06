@@ -28,7 +28,8 @@ import { parseRawExplainToTree } from "@/lib/explainParser";
 type ViewState = "dashboard" | "sql-optimizer" | "db-analyzer" | "schema-builder";
 
 export default function SchemaChatPage() {
-  const { getToken, isSignedIn } = useAuth();
+  const { getToken, userId } = useAuth();
+  const isSignedIn = !!userId;
   const clerk = useClerk();
   const [view, setView] = useState<ViewState>("dashboard");
   
