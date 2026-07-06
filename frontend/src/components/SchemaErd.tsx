@@ -62,8 +62,8 @@ function buildErdEdges(nodes: Node[], schemaText: string): Edge[] {
           sourceHandle: `${sourceCol}-out`,
           targetHandle: `${targetCol}-in`,
           type: "smoothstep",
-          animated: false,
-          style: { stroke: "rgba(59, 130, 246, 0.6)", strokeWidth: 2 }
+          animated: true,
+          style: { stroke: "rgba(99, 102, 241, 0.85)", strokeWidth: 2.5 }
         });
       }
     }
@@ -86,7 +86,8 @@ function buildErdEdges(nodes: Node[], schemaText: string): Edge[] {
         sourceHandle: `${sourceCol}-out`,
         targetHandle: `${targetCol}-in`,
         type: "smoothstep",
-        style: { stroke: "rgba(99, 102, 241, 0.6)", strokeWidth: 2 }
+        animated: true,
+        style: { stroke: "rgba(139, 92, 246, 0.85)", strokeWidth: 2.5 }
       });
     }
   }
@@ -121,7 +122,8 @@ function buildErdEdges(nodes: Node[], schemaText: string): Edge[] {
               sourceHandle: `${col.name}-out`,
               targetHandle: `id-in`,
               type: "smoothstep",
-              style: { stroke: "rgba(148, 163, 184, 0.4)", strokeWidth: 1.5, strokeDasharray: "4 4" }
+              animated: true,
+              style: { stroke: "rgba(148, 163, 184, 0.65)", strokeWidth: 1.5, strokeDasharray: "4 4" }
             });
           }
         }
