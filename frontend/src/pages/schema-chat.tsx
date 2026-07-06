@@ -24,6 +24,7 @@ import { ExplainGraph } from "@/components/ExplainGraph";
 import { AgentSwarm } from "@/components/AgentSwarm";
 import { Badge } from "@/components/ui/badge";
 import { parseRawExplainToTree } from "@/lib/explainParser";
+import { parseSqlSchemaToNodes } from "@/utils/sqlParser";
 
 type ViewState = "dashboard" | "sql-optimizer" | "db-analyzer" | "schema-builder";
 
@@ -140,15 +141,32 @@ export default function SchemaChatPage() {
   // Schema Builder State
   const [schemaDDL, setSchemaDDL] = useState("");
   const [visualizedSchema, setVisualizedSchema] = useState("");
+  const hasPrefilledSchema = useRef(false);
 
   useEffect(() => {
-    if (view === "schema-builder" && schemaDDL.trim() && !visualizedSchema) {
+    if (view === "schema-builder" && schemaDDL.trim() && !hasPrefilledSchema.current) {
+      hasPrefilledSchema.current = true;
       setVisualizedSchema(schemaDDL);
     }
-  }, [view, schemaDDL, visualizedSchema]);
+  }, [view]);
 
   const generateDiagram = () => {
-    setVisualizedSchema(schemaDDL);
+    if (!schemaDDL.trim()) {
+      setVisualizedSchema("");
+      toast.error("Schema DDL is empty.");
+      return;
+    }
+    try {
+      const parsedNodes = parseSqlSchemaToNodes(schemaDDL);
+      if (parsedNodes.length === 0) {
+        toast.error("No valid CREATE TABLE statements detected. Please verify your SQL syntax (e.g. closing parentheses).");
+      } else {
+        setVisualizedSchema(schemaDDL);
+        toast.success(`Successfully visualized ${parsedNodes.length} tables!`);
+      }
+    } catch (e: any) {
+      toast.error(`Parsing failed: ${e.message || e}`);
+    }
   };
   
   useEffect(() => {
