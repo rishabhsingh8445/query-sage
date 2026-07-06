@@ -1041,8 +1041,38 @@ export default function SchemaChatPage() {
                  <CardTitle className="text-lg text-zinc-100 flex items-center gap-2">
                    <Code2 className="w-5 h-5 text-pink-400" /> Schema Definitions (DDL)
                  </CardTitle>
-               </CardHeader>
+                 </CardHeader>
                <CardContent className="p-0 flex-1 flex flex-col min-h-0">
+                  {/* AI DDL Copilot Input Box */}
+                  <div className="p-3 bg-zinc-950/40 border-b border-zinc-800/50 flex gap-2 items-center shrink-0">
+                    <div className="flex-1 flex items-center gap-1.5 bg-black/40 border border-zinc-800 rounded-md px-2.5 py-1">
+                      <Sparkles className="w-3.5 h-3.5 text-pink-400 animate-pulse shrink-0" />
+                      <input 
+                        type="text"
+                        value={copilotPrompt}
+                        onChange={(e) => setCopilotPrompt(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') handleGenerateDDL();
+                        }}
+                        placeholder="AI Copilot: Describe tables to generate DDL..."
+                        disabled={isGeneratingDDL}
+                        className="flex-1 bg-transparent text-xs text-zinc-200 focus:outline-none placeholder-zinc-600 disabled:opacity-50"
+                      />
+                    </div>
+                    <Button
+                      size="sm"
+                      onClick={handleGenerateDDL}
+                      disabled={isGeneratingDDL || !copilotPrompt.trim()}
+                      className="bg-pink-600 hover:bg-pink-500 text-white font-medium text-xs h-7 px-3 shrink-0 flex items-center gap-1.5"
+                    >
+                      {isGeneratingDDL ? (
+                        <Loader2 className="w-3 h-3 animate-spin" />
+                      ) : (
+                        <Sparkles className="w-3 h-3" />
+                      )}
+                      <span>Generate</span>
+                    </Button>
+                  </div>
                   <Textarea 
                      value={schemaDDL}
                      onChange={(e) => setSchemaDDL(e.target.value)}
