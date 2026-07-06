@@ -899,7 +899,7 @@ async def get_history(user_id: str = Depends(get_current_user), db: Session = De
         "explanation": q.explanation, 
         "bottlenecks": q.bottlenecks, 
         "suggested_indexes": q.suggested_indexes, 
-        "created_at": q.created_at.isoformat(),
+        "created_at": q.created_at.isoformat() + "Z",
         "estimated_improvement": q.estimated_improvement,
         "execution_plan_summary": q.execution_plan_summary,
         "db_type": q.db_type,
@@ -924,7 +924,7 @@ async def get_history_entry(id: int, user_id: str = Depends(get_current_user), d
         "db_type": q.db_type,
         "estimated_improvement": q.estimated_improvement,
         "share_id": q.share_id,
-        "created_at": q.created_at.isoformat()
+        "created_at": q.created_at.isoformat() + "Z"
     }
 @router.delete("/history/{id}")
 async def delete_history_entry(id: int, user_id: str = Depends(get_current_user), db: Session = Depends(get_db)):
@@ -1005,7 +1005,7 @@ async def get_shared_query(shareId: str, db: Session = Depends(get_db)):
         "execution_plan_summary": history.execution_plan_summary,
         "query_complexity_score": history.query_complexity_score,
         "db_type": history.db_type,
-        "created_at": history.created_at.isoformat()
+        "created_at": history.created_at.isoformat() + "Z"
     }
 
 class ConnectionManager:
