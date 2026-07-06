@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useAuth, SignInButton, useClerk } from "@clerk/react";
 import { Button } from "@/components/ui/button";
@@ -20,6 +20,10 @@ import { ReactFlow, Background, Controls, applyNodeChanges, applyEdgeChanges, ty
 import '@xyflow/react/dist/style.css';
 import { toast } from "sonner";
 import { SchemaErd } from "@/components/SchemaErd";
+import { ExplainGraph } from "@/components/ExplainGraph";
+import { AgentSwarm } from "@/components/AgentSwarm";
+import { Badge } from "@/components/ui/badge";
+import { parseRawExplainToTree } from "@/lib/explainParser";
 
 type ViewState = "dashboard" | "sql-optimizer" | "db-analyzer" | "schema-builder";
 
@@ -38,6 +42,52 @@ export default function SchemaChatPage() {
   const [optimizedOutput, setOptimizedOutput] = useState("");
   const [isOptimizing, setIsOptimizing] = useState(false);
   const [optimizationResult, setOptimizationResult] = useState<any>(null);
+  const [traces, setTraces] = useState<string[]>([]);
+  const [streamStatus, setStreamStatus] = useState("");
+  const [roomId, setRoomId] = useState<string | null>(null);
+  const wsRef = useRef<any>(null);
+  const isIncomingEdit = useRef(false);
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const rId = params.get("room");
+    if (rId) {
+      setRoomId(rId);
+      const wsScheme = window.location.protocol === "https:" ? "wss" : "ws";
+      const baseHost = window.location.host;
+      const wsUrl = `${wsScheme}://${baseHost.includes("localhost") || baseHost.includes("127.0.0.1") ? "localhost:8000" : baseHost}/api/ws/collaboration/${rId}`;
+      const ws = new WebSocket(wsUrl);
+      wsRef.current = ws;
+
+      ws.onmessage = (event) => {
+        try {
+          const data = JSON.parse(event.data);
+          if (data.type === "sql-update") {
+            isIncomingEdit.current = true;
+            setRawSql(data.sql);
+            setTimeout(() => {
+              isIncomingEdit.current = false;
+            }, 50);
+          }
+        } catch (e) {
+          console.error("Websocket parsing error", e);
+        }
+      };
+
+      return () => {
+        ws.close();
+      };
+    }
+  }, []);
+
+  useEffect(() => {
+    if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN && !isIncomingEdit.current && rawSql) {
+      wsRef.current.send(JSON.stringify({
+        type: "sql-update",
+        sql: rawSql
+      }));
+    }
+  }, [rawSql]);
   const [isEstimating, setIsEstimating] = useState(false);
   const [estimateResult, setEstimateResult] = useState<{ cost: number, rows: number, risk_level: string, message: string } | null>(null);
 
@@ -89,7 +139,7 @@ export default function SchemaChatPage() {
   const [optimizationGoal, setOptimizationGoal] = useState("Max Performance");
   const [schemaContext, setSchemaContext] = useState("");
   const [explainPlan, setExplainPlan] = useState("");
-  const [outputViewMode, setOutputViewMode] = useState<"explanation" | "diff">("explanation");
+  const [outputViewMode, setOutputViewMode] = useState<"explanation" | "diff" | "visual">("explanation");
   
   // History State
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
@@ -302,6 +352,8 @@ export default function SchemaChatPage() {
     
     setIsOptimizing(true);
     setOptimizedOutput("");
+    setTraces([]);
+    setStreamStatus("Initializing Swarm Engine...");
     resetAgents();
     
     // Start with parser working
@@ -362,10 +414,15 @@ export default function SchemaChatPage() {
               continue;
             }
             
+            if (currentEvent === "status") {
+              try { setStreamStatus(JSON.parse(dataStr)); } catch(e) {}
+            }
+
             if (currentEvent === "trace") {
               try {
                 const traceData = JSON.parse(dataStr);
                 const step = traceData.step as string;
+                setTraces(prev => [...prev, step]);
                 if (step.includes("Analyzing Schema")) {
                   activateAgent("schema");
                 } else if (step.includes("Generating Optimized SQL")) {
@@ -629,9 +686,35 @@ export default function SchemaChatPage() {
             {/* Left Pane: Input */}
             <Card className="bg-[#111113]/80 border-zinc-800/50 backdrop-blur-xl flex flex-col shadow-xl overflow-hidden h-full min-h-0">
                <CardHeader className="border-b border-zinc-800/50 py-3 px-4 bg-black/20 shrink-0 flex flex-row items-center justify-between">
-                 <CardTitle className="text-base text-zinc-100 flex items-center gap-2">
-                   <Code2 className="w-5 h-5 text-indigo-400" /> Optimizer Context
-                 </CardTitle>
+                 <div className="flex items-center gap-4">
+                   <CardTitle className="text-base text-zinc-100 flex items-center gap-2">
+                     <Code2 className="w-5 h-5 text-indigo-400" /> Optimizer Context
+                   </CardTitle>
+                   {roomId ? (
+                     <Badge variant="secondary" className="bg-amber-500/10 text-amber-500 border-amber-500/20 font-mono text-[9px] flex items-center gap-1.5 h-6">
+                       <span className="relative flex h-1.5 w-1.5">
+                         <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-500 opacity-75"></span>
+                         <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-amber-500"></span>
+                       </span>
+                       Live Room: {roomId}
+                     </Badge>
+                   ) : (
+                     <Button 
+                       variant="outline" 
+                       size="sm" 
+                       type="button"
+                       className="h-6 text-[10px] px-2 border-indigo-500/30 text-indigo-400 hover:bg-indigo-500/10 font-semibold"
+                       onClick={() => {
+                         const newRoom = Math.random().toString(36).substring(2, 9);
+                         window.history.pushState({}, "", `?room=${newRoom}&view=sql-optimizer`);
+                         setRoomId(newRoom);
+                         toast.success("Collaborative Room Created! Share URL with colleagues.");
+                       }}
+                     >
+                       Collaborate Live
+                     </Button>
+                   )}
+                 </div>
                  <div className="flex gap-2">
                    <Sheet open={isHistoryOpen} onOpenChange={setIsHistoryOpen}>
                      <SheetTrigger asChild>
@@ -830,65 +913,12 @@ export default function SchemaChatPage() {
                        </div>
                      </div>
                   ) : isOptimizing && !optimizedOutput ? (
-                     <div className="h-full flex flex-col p-5 overflow-y-auto custom-scrollbar">
-                       <div className="flex items-center gap-2 mb-5">
-                         <div className="relative">
-                           <div className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></div>
-                           <div className="absolute inset-0 w-2 h-2 rounded-full bg-emerald-400 animate-ping"></div>
-                         </div>
-                         <span className="text-xs font-semibold text-emerald-400 uppercase tracking-widest">Agent Swarm Active</span>
-                       </div>
-                       <div className="flex flex-col gap-3">
-                         {agents.map((agent, idx) => (
-                           <div
-                             key={agent.id}
-                             className={`relative flex items-center gap-4 p-4 rounded-xl border transition-all duration-500 ${
-                               agent.status === "working"
-                                 ? "bg-indigo-500/5 border-indigo-500/30 shadow-[0_0_20px_rgba(99,102,241,0.08)]"
-                                 : agent.status === "done"
-                                 ? "bg-emerald-500/5 border-emerald-500/20"
-                                 : "bg-zinc-900/30 border-zinc-800/40 opacity-50"
-                             }`}
-                           >
-                             <div className={`w-10 h-10 rounded-lg flex items-center justify-center shrink-0 transition-all duration-500 ${
-                               agent.status === "working"
-                                 ? "bg-indigo-500/15 text-indigo-400 shadow-[0_0_12px_rgba(99,102,241,0.2)]"
-                                 : agent.status === "done"
-                                 ? "bg-emerald-500/15 text-emerald-400"
-                                 : "bg-zinc-800/50 text-zinc-600"
-                             }`}>
-                               {agent.status === "done" ? <CheckCircle2 className="w-5 h-5" /> : agent.icon}
-                             </div>
-                             <div className="flex-1 min-w-0">
-                               <div className="flex items-center gap-2">
-                                 <span className={`text-sm font-semibold transition-colors duration-300 ${
-                                   agent.status === "working" ? "text-indigo-300" : agent.status === "done" ? "text-emerald-300" : "text-zinc-500"
-                                 }`}>{agent.name}</span>
-                                 {agent.status === "working" && (
-                                   <Loader2 className="w-3 h-3 text-indigo-400 animate-spin" />
-                                 )}
-                               </div>
-                               <p className={`text-xs mt-0.5 transition-colors duration-300 ${
-                                 agent.status === "working" ? "text-zinc-400" : agent.status === "done" ? "text-zinc-500" : "text-zinc-700"
-                               }`}>{agent.description}</p>
-                               {agent.status === "working" && (
-                                 <div className="mt-2 h-1 w-full bg-zinc-800 rounded-full overflow-hidden">
-                                   <div className="h-full bg-gradient-to-r from-indigo-500 via-violet-500 to-indigo-500 rounded-full animate-progress-indeterminate"></div>
-                                 </div>
-                               )}
-                             </div>
-                             <div className={`text-[10px] uppercase tracking-wider font-bold px-2 py-1 rounded-md shrink-0 ${
-                               agent.status === "working"
-                                 ? "bg-indigo-500/10 text-indigo-400"
-                                 : agent.status === "done"
-                                 ? "bg-emerald-500/10 text-emerald-400"
-                                 : "bg-zinc-800/50 text-zinc-600"
-                             }`}>
-                               {agent.status === "working" ? "Running" : agent.status === "done" ? "Done" : "Queued"}
-                             </div>
-                           </div>
-                         ))}
-                       </div>
+                     <div className="h-full p-5 overflow-y-auto custom-scrollbar">
+                       <AgentSwarm traces={traces} status={streamStatus || "Agent Swarm Active"} />
+                     </div>
+                  ) : outputViewMode === "visual" ? (
+                     <div className="h-full p-4 overflow-y-auto custom-scrollbar flex flex-col gap-4 bg-[#0a0a0c]">
+                       <ExplainGraph rootNode={parseRawExplainToTree(explainPlan || (optimizationResult && optimizationResult.execution_plan_summary) || "")} />
                      </div>
                   ) : outputViewMode === "explanation" ? (
                      <div className="flex flex-col gap-6 overflow-y-auto custom-scrollbar p-6 h-full">
