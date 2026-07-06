@@ -33,6 +33,8 @@ import { CardContent } from "@/components/ui/card";
 import { IndexEstimator } from "@/components/IndexEstimator";
 import { useAppStore } from "@/store/useAppStore";
 import { parseSqlSchemaToNodes } from "@/utils/sqlParser";
+import { ExplainGraph } from "@/components/ExplainGraph";
+import { AgentSwarm } from "@/components/AgentSwarm";
 
 function parsePartialJson(text: string): Partial<OptimizationResult> {
   const result: Partial<OptimizationResult> = {};
@@ -101,6 +103,51 @@ export default function DashboardPage() {
   const [isEstimating, setIsEstimating] = useState(false);
   const [estimateResult, setEstimateResult] = useState<{ cost: number, rows: number, risk_level: string, message: string } | null>(null);
   const [traces, setTraces] = useState<string[]>([]);
+  const [roomId, setRoomId] = useState<string | null>(null);
+  const wsRef = useRef<WebSocket | null>(null);
+  const isIncomingEdit = useRef<boolean>(false);
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const rId = params.get("room");
+    if (rId) {
+      setRoomId(rId);
+      const wsScheme = window.location.protocol === "https:" ? "wss" : "ws";
+      const baseHost = window.location.host;
+      const wsUrl = `${wsScheme}://${baseHost.includes("localhost") || baseHost.includes("127.0.0.1") ? "localhost:8000" : baseHost}/api/ws/collaboration/${rId}`;
+      const ws = new WebSocket(wsUrl);
+      wsRef.current = ws;
+
+      ws.onmessage = (event) => {
+        try {
+          const data = JSON.parse(event.data);
+          if (data.type === "sql-update") {
+            isIncomingEdit.current = true;
+            form.setValue("query", data.sql);
+            setTimeout(() => {
+              isIncomingEdit.current = false;
+            }, 50);
+          }
+        } catch (e) {
+          console.error("Websocket parsing error", e);
+        }
+      };
+
+      return () => {
+        ws.close();
+      };
+    }
+  }, [form]);
+
+  const watchQuery = form.watch("query");
+  useEffect(() => {
+    if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN && !isIncomingEdit.current && watchQuery) {
+      wsRef.current.send(JSON.stringify({
+        type: "sql-update",
+        sql: watchQuery
+      }));
+    }
+  }, [watchQuery]);
   
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -437,9 +484,38 @@ export default function DashboardPage() {
             <Code2 className="h-4 w-4 text-primary" />
             Query Editor
           </div>
-          <Badge variant="outline" className="bg-background font-mono text-[10px]">
-            {watchDbType.toUpperCase()}
-          </Badge>
+          <div className="flex items-center gap-2">
+            {roomId ? (
+              <Badge variant="secondary" className="bg-amber-500/10 text-amber-500 border-amber-500/20 font-mono text-[9px] flex items-center gap-1.5 h-6">
+                <span className="relative flex h-1.5 w-1.5">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-500 opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-amber-500"></span>
+                </span>
+                Live Room: {roomId}
+              </Badge>
+            ) : (
+              <Button 
+                variant="outline" 
+                size="sm" 
+                type="button"
+                className="h-6 text-[10px] px-2 border-primary/20 text-primary hover:bg-primary/5 font-semibold"
+                onClick={() => {
+                  const newRoom = Math.random().toString(36).substring(2, 9);
+                  window.history.pushState({}, "", `?room=${newRoom}`);
+                  setRoomId(newRoom);
+                  toast({
+                    title: "Collaborative Room Created",
+                    description: "Share this browser URL to edit query SQL in real-time together!",
+                  });
+                }}
+              >
+                Collaborate Live
+              </Button>
+            )}
+            <Badge variant="outline" className="bg-background font-mono text-[10px] h-6 flex items-center">
+              {watchDbType.toUpperCase()}
+            </Badge>
+          </div>
         </div>
 
         <ScrollArea className="flex-1">
@@ -735,21 +811,15 @@ export default function DashboardPage() {
         )}
 
         {isStreaming && !rawLlmContent && (
-          <div className="absolute inset-0 flex flex-col items-center justify-center bg-background/50 backdrop-blur-sm z-50">
-            <div className="relative">
-              <div className="h-24 w-24 rounded-full border-t-2 border-l-2 border-primary animate-spin"></div>
+          <div className="absolute inset-0 flex flex-col items-center justify-center bg-background/50 backdrop-blur-sm z-50 p-6 overflow-y-auto">
+            <div className="relative mb-6">
+              <div className="h-16 w-16 rounded-full border-t-2 border-l-2 border-primary animate-spin"></div>
               <div className="absolute inset-0 flex items-center justify-center">
-                <Database className="h-8 w-8 text-primary animate-pulse" />
+                <Database className="h-6 w-6 text-primary animate-pulse" />
               </div>
             </div>
-            <p className="mt-6 text-sm font-mono text-primary animate-pulse uppercase mb-4">{streamStatus || "EVALUATING QUERY PLAN..."}</p>
-            <div className="space-y-2 max-w-md w-full px-4">
-              {traces.map((trace, i) => (
-                <div key={i} className="text-xs font-mono text-foreground/80 bg-muted/50 p-2 rounded flex items-start gap-2 animate-in slide-in-from-bottom-2">
-                  <span className="text-primary mt-0.5">{'>'}</span>
-                  <span className="whitespace-pre-wrap">{trace}</span>
-                </div>
-              ))}
+            <div className="w-full max-w-4xl">
+              <AgentSwarm traces={traces} status={streamStatus || "Evaluating Query Plan..."} />
             </div>
           </div>
         )}
@@ -816,6 +886,11 @@ export default function DashboardPage() {
           <ScrollArea className="flex-1">
             <div className="p-6 space-y-8 pb-20">
               
+              {/* Agent Swarm Tracer Visualizer */}
+              {(isStreaming || traces.length > 0) && (
+                <AgentSwarm traces={traces} status={streamStatus || (result ? "Workflow Complete" : "Processing...")} />
+              )}
+
               {/* Header / Banner */}
               <div className="rounded-lg border border-green-500/30 bg-green-500/10 p-4 flex items-start gap-4">
                 <div className="rounded-full bg-green-500/20 p-2 shrink-0">
@@ -897,16 +972,27 @@ export default function DashboardPage() {
                   </div>
                 </div>
               )}
-              {/* Visual EXPLAIN Tree */}
+              {/* Visual EXPLAIN Plan */}
               {(rawExplain || form.getValues().explain_output) && (
                 <div className="space-y-3">
                   <h3 className="text-sm font-bold text-foreground flex items-center gap-2 border-b border-border/50 pb-2">
                     <Database className="h-4 w-4 text-primary" />
-                    Execution Plan Tree
+                    Execution Plan Analysis
                   </h3>
-                  <div className="p-3 rounded bg-card/50 border border-border overflow-x-auto max-w-full">
-                    <VisualExplain node={parseRawExplainToTree(rawExplain || form.getValues().explain_output || "") as any} />
-                  </div>
+                  <Tabs defaultValue="visual" className="w-full">
+                    <TabsList className="bg-muted/50 p-1 mb-2">
+                      <TabsTrigger value="visual" className="text-xs">Interactive Flow Graph</TabsTrigger>
+                      <TabsTrigger value="tree" className="text-xs">Plan Tree View</TabsTrigger>
+                    </TabsList>
+                    <TabsContent value="visual" className="mt-0 animate-in fade-in duration-300">
+                      <ExplainGraph rootNode={parseRawExplainToTree(rawExplain || form.getValues().explain_output || "")} />
+                    </TabsContent>
+                    <TabsContent value="tree" className="mt-0">
+                      <div className="p-3 rounded bg-card/50 border border-border overflow-x-auto max-w-full">
+                        <VisualExplain node={parseRawExplainToTree(rawExplain || form.getValues().explain_output || "") as any} />
+                      </div>
+                    </TabsContent>
+                  </Tabs>
                 </div>
               )}
 

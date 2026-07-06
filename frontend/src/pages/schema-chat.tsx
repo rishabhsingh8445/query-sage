@@ -19,6 +19,7 @@ import ReactDiffViewer from 'react-diff-viewer-continued';
 import { ReactFlow, Background, Controls, applyNodeChanges, applyEdgeChanges, type Node, type Edge, type NodeChange, type EdgeChange } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
 import { toast } from "sonner";
+import { SchemaErd } from "@/components/SchemaErd";
 
 type ViewState = "dashboard" | "sql-optimizer" | "db-analyzer" | "schema-builder";
 
@@ -985,21 +986,19 @@ export default function SchemaChatPage() {
                    <Network className="w-5 h-5 text-pink-400" /> Interactive ER Diagram
                  </CardTitle>
                </CardHeader>
-               <CardContent className="p-0 flex-1 min-h-0 bg-[#0a0a0c]">
-                 <div className="w-full h-full">
-                   <ReactFlow
-                     nodes={nodes}
-                     edges={edges}
-                     onNodesChange={onNodesChange}
-                     onEdgesChange={onEdgesChange}
-                     fitView
-                     proOptions={{ hideAttribution: true }}
-                     colorMode="dark"
-                   >
-                     <Background color="#333" gap={16} />
-                     <Controls />
-                   </ReactFlow>
-                 </div>
+               <CardContent className="p-0 flex-1 min-h-0 bg-[#0a0a0c] relative">
+                 <SchemaErd 
+                   schemaText={schemaDDL} 
+                   onTableAction={(tableName, actionPrompt) => {
+                     setRawSql(`SELECT * FROM ${tableName};`);
+                     setSchemaContext(schemaDDL);
+                     setView("sql-optimizer");
+                     setTimeout(() => {
+                       handleOptimize(`SELECT * FROM ${tableName};`);
+                     }, 300);
+                     toast.success(`Active focus shifted to table ${tableName} for optimization!`);
+                   }} 
+                 />
                </CardContent>
             </Card>
 

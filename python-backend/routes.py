@@ -1,6 +1,6 @@
 import json
 import asyncio
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter, Depends, Request, WebSocket, WebSocketDisconnect
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 from typing import Optional, List, Dict
@@ -1002,3 +1002,45 @@ async def get_shared_query(shareId: str, db: Session = Depends(get_db)):
         "db_type": history.db_type,
         "created_at": history.created_at.isoformat()
     }
+
+class ConnectionManager:
+    def __init__(self):
+        self.active_connections: Dict[str, List[WebSocket]] = {}
+
+    async def connect(self, websocket: WebSocket, room_id: str):
+        await websocket.accept()
+        if room_id not in self.active_connections:
+            self.active_connections[room_id] = []
+        self.active_connections[room_id].append(websocket)
+
+    def disconnect(self, websocket: WebSocket, room_id: str):
+        if room_id in self.active_connections:
+            if websocket in self.active_connections[room_id]:
+                self.active_connections[room_id].remove(websocket)
+            if not self.active_connections[room_id]:
+                del self.active_connections[room_id]
+
+    async def broadcast(self, message: dict, room_id: str, exclude_websocket: WebSocket = None):
+        if room_id in self.active_connections:
+            for connection in self.active_connections[room_id]:
+                if connection != exclude_websocket:
+                    try:
+                        await connection.send_json(message)
+                    except Exception:
+                        pass
+
+manager = ConnectionManager()
+
+@router.websocket("/ws/collaboration/{room_id}")
+async def websocket_endpoint(websocket: WebSocket, room_id: str):
+    await manager.connect(websocket, room_id)
+    try:
+        while True:
+            data = await websocket.receive_json()
+            await manager.broadcast(data, room_id, exclude_websocket=websocket)
+    except WebSocketDisconnect:
+        manager.disconnect(websocket, room_id)
+        await manager.broadcast({"type": "user-leave", "message": "A user left the room"}, room_id)
+    except Exception:
+        manager.disconnect(websocket, room_id)
+
