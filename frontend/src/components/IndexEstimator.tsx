@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useAuth } from "@clerk/react";
 import { Button } from "@/components/ui/button";
 import { Loader2, Activity, Zap } from "lucide-react";
@@ -57,6 +57,19 @@ export function IndexEstimator({
     }
   };
 
+  useEffect(() => {
+    handleEstimate();
+  }, [indexStatement, query, dbType]);
+
+  if (loading) {
+    return (
+      <div className="mt-2.5 flex items-center gap-2 text-xs text-zinc-500 font-mono">
+        <Loader2 className="h-3.5 w-3.5 animate-spin text-indigo-400" />
+        <span>Calculating index speedup factor...</span>
+      </div>
+    );
+  }
+
   if (result) {
     return (
       <div className="mt-3 p-3 bg-card border border-border rounded-md text-sm shadow-sm space-y-2">
@@ -91,17 +104,19 @@ export function IndexEstimator({
 
   return (
     <div className="mt-2">
-      {error && <div className="text-xs text-destructive mb-2">{error}</div>}
-      <Button 
-        variant="outline" 
-        size="sm" 
-        className="h-7 text-xs flex items-center gap-2 border-primary/20 hover:bg-primary/5 hover:text-primary"
-        onClick={handleEstimate}
-        disabled={loading}
-      >
-        {loading ? <Loader2 className="h-3 w-3 animate-spin" /> : <Activity className="h-3 w-3" />}
-        Estimate Impact Radius & Speedup
-      </Button>
+      {error && (
+        <div className="flex flex-col gap-1.5">
+          <div className="text-[10px] text-rose-400 font-mono">Estimation skipped: {error}</div>
+          <Button 
+            variant="outline" 
+            size="sm" 
+            className="h-6 text-[10px] w-max px-2.5 border-zinc-800 text-zinc-400 hover:text-zinc-200 hover:bg-zinc-900"
+            onClick={handleEstimate}
+          >
+            Retry Estimation
+          </Button>
+        </div>
+      )}
     </div>
   );
 }
