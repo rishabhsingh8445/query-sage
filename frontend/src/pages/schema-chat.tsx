@@ -152,7 +152,7 @@ export default function SchemaChatPage() {
       const response = await fetch(`${import.meta.env.VITE_API_URL || ""}/api/schema/generate`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ prompt: copilotPrompt })
+        body: JSON.stringify({ prompt: copilotPrompt, current_schema: schemaDDL })
       });
       if (!response.ok) {
         const d = await response.json().catch(() => ({}));

@@ -1192,6 +1192,7 @@ Keep your response concise, clear, and action-oriented. Provide exact SQL statem
 
 class GenerateSchemaBody(BaseModel):
     prompt: str
+    current_schema: Optional[str] = None
 
 @router.post("/schema/generate")
 async def generate_schema(request: GenerateSchemaBody):
@@ -1200,10 +1201,20 @@ async def generate_schema(request: GenerateSchemaBody):
     
     llm = get_groq_llm(temperature=0.2)
     
-    system_prompt = """You are an expert Database Architect.
-Convert the user's natural language request into a clean, formatted SQL CREATE TABLE DDL.
-Return ONLY valid, standard SQL DDL statements (e.g. CREATE TABLE) in plain text.
-Do NOT output any markdown syntax, backticks, or explanation. Only raw SQL DDL code."""
+    current_context = ""
+    if request.current_schema and request.current_schema.strip():
+        current_context = f"\n\nActive Current Schema Context (DDL):\n```sql\n{request.current_schema}\n```"
+
+    system_prompt = f"""You are an expert Database Architect.
+Your task is to update or generate standard SQL CREATE TABLE DDLs based on the user's prompt.
+
+{current_context if current_context else "There is no existing active schema."}
+
+STRICT ARCHITECT RULES:
+1. If there is an Active Current Schema Context above, you MUST modify, extend, or link the CURRENT tables rather than replacing them with entirely new ones, UNLESS the user's prompt explicitly asks to 'start fresh', 'create a new database', or 'make new tables' from scratch.
+2. Maintain existing column types and primary keys. Only append columns, modify relationships, or add new tables if requested.
+3. Return ONLY valid, standard SQL DDL statements (e.g. CREATE TABLE, ALTER TABLE) in plain text.
+4. Do NOT output any markdown blocks (e.g. ```sql), backticks, or conversational explanations. Only return raw SQL DDL code."""
 
     messages = [
         SystemMessage(content=system_prompt),
