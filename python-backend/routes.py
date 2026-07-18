@@ -306,6 +306,19 @@ async def langgraph_optimize(request: SchemaChatBody, user_id: str = Depends(get
             except:
                 pass
 
+        # RAG Fallback: If no schema context is pasted, fetch matching table schemas from Qdrant!
+        if not schema_context.strip():
+            try:
+                from rag import search_relevant_schema
+                hits = await search_relevant_schema(user_id, request.raw_query, limit=5)
+                if hits:
+                    schema_context = "-- Auto-retrieved via RAG (from Schema Architect):\n"
+                    for hit in hits:
+                        payload = hit.get("payload", {})
+                        schema_context += f"{payload.get('schema_ddl')}\n\n"
+            except Exception as e:
+                print(f"RAG search failed: {e}")
+
         goal = "Max Performance"
         if "Goal:" in request.message:
             try:
@@ -1248,6 +1261,21 @@ async def save_schema_history(request: SaveSchemaBody, user_id: str = Depends(ge
     )
     db.add(entry)
     db.commit()
+    
+    # Store schema chunks in Qdrant Vector DB for semantic RAG lookups!
+    try:
+        from rag import store_schema_chunk
+        table_regex = re.compile(r'CREATE\s+TABLE\s+(?:IF\s+NOT\s+EXISTS\s+)?(?:[\w`"\[\]]+\.)?([a-zA-Z0-9_`"\[\]]+)\s*\((.*?)\)(?:;|\s*$|\Z)', re.IGNORECASE | re.DOTALL)
+        clean_ddl = re.sub(r'/\*.*?\*/', '', request.ddl)
+        clean_ddl = re.sub(r'--.*$', '', clean_ddl, flags=re.M)
+        
+        for match in table_regex.finditer(clean_ddl):
+            table_name = match.group(1).replace('`','').replace('"','').replace('[','').replace(']','').strip()
+            table_ddl = match.group(0).strip()
+            await store_schema_chunk(user_id, table_name, table_ddl)
+    except Exception as e:
+        print(f"Failed to index tables in Qdrant vector store: {e}")
+        
     return {"status": "success", "id": entry.id}
 
 @router.get("/schema/history")
