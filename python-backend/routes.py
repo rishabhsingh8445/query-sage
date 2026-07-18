@@ -729,7 +729,7 @@ async def db_telemetry(creds: MonitorCredentials):
 
 @router.get("/intelligence/history")
 async def intelligence_history(user_id: str = Depends(get_current_user), db: Session = Depends(get_db)):
-    recent = db.query(QueryHistory).filter(QueryHistory.user_id == user_id).order_by(desc(QueryHistory.created_at)).limit(50).all()
+    recent = db.query(QueryHistory).filter(QueryHistory.user_id == user_id).order_by(QueryHistory.created_at.desc()).limit(50).all()
     
     if not recent:
         return {
@@ -776,7 +776,7 @@ async def intelligence_history(user_id: str = Depends(get_current_user), db: Ses
 
 @router.get("/history")
 async def get_history(user_id: str = Depends(get_current_user), db: Session = Depends(get_db)):
-    recent = db.query(QueryHistory).filter(QueryHistory.user_id == user_id).order_by(desc(QueryHistory.created_at)).all()
+    recent = db.query(QueryHistory).filter(QueryHistory.user_id == user_id).order_by(QueryHistory.created_at.desc()).all()
     return [{
         "id": q.id, 
         "original_query": q.original_query, 
@@ -1018,8 +1018,7 @@ async def save_schema_history(request: SaveSchemaBody, user_id: str = Depends(ge
 @router.get("/schema/history")
 async def get_schema_history(user_id: str = Depends(get_current_user), db: Session = Depends(get_db)):
     from models import SchemaHistory
-    from sqlalchemy import desc
-    recent = db.query(SchemaHistory).filter(SchemaHistory.user_id == user_id).order_by(desc(SchemaHistory.created_at)).all()
+    recent = db.query(SchemaHistory).filter(SchemaHistory.user_id == user_id).order_by(SchemaHistory.created_at.desc()).all()
     return [{
         "id": r.id,
         "ddl": r.ddl,
