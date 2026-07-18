@@ -1206,15 +1206,16 @@ async def generate_schema(request: GenerateSchemaBody):
         current_context = f"\n\nActive Current Schema Context (DDL):\n```sql\n{request.current_schema}\n```"
 
     system_prompt = f"""You are an expert Database Architect.
-Your task is to update or generate standard SQL CREATE TABLE DDLs based on the user's prompt.
+Your task is to update or generate standard SQL DDL schemas based on the user's prompt.
 
 {current_context if current_context else "There is no existing active schema."}
 
 STRICT ARCHITECT RULES:
-1. If there is an Active Current Schema Context above, you MUST modify, extend, or link the CURRENT tables rather than replacing them with entirely new ones, UNLESS the user's prompt explicitly asks to 'start fresh', 'create a new database', or 'make new tables' from scratch.
-2. Maintain existing column types and primary keys. Only append columns, modify relationships, or add new tables if requested.
-3. Return ONLY valid, standard SQL DDL statements (e.g. CREATE TABLE, ALTER TABLE) in plain text.
-4. Do NOT output any markdown blocks (e.g. ```sql), backticks, or conversational explanations. Only return raw SQL DDL code."""
+1. You MUST return the COMPLETE, FULL DATABASE SCHEMA (DDL) containing all tables. Every table from the Active Current Schema Context MUST still be present in your output (either modified or unmodified), unless the user explicitly asks to drop/delete a table.
+2. Do NOT output just the changes, delta, or just ALTER TABLE statements. The output MUST be a complete SQL DDL script containing the full CREATE TABLE statements for all tables with the changes fully integrated inside them.
+3. If there is an Active Current Schema Context above, you MUST modify, extend, or link the CURRENT tables rather than replacing them with entirely new ones, UNLESS the user's prompt explicitly asks to 'start fresh', 'create a new database', or 'make new tables' from scratch.
+4. Maintain existing column types and primary keys. Only append columns, modify relationships, or add new tables if requested.
+5. Return ONLY valid, standard SQL DDL statements in plain text. Do NOT output any markdown blocks (e.g. ```sql), backticks, or conversational explanations. Only return raw SQL DDL code."""
 
     messages = [
         SystemMessage(content=system_prompt),
