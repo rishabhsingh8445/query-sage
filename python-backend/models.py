@@ -21,15 +21,6 @@ class QueryHistory(Base):
     chat_history = Column(JSON, nullable=False, default=[])
     created_at = Column(DateTime, default=func.now(), nullable=False)
 
-class SchemaChatThread(Base):
-    __tablename__ = "schema_chat_threads"
-
-    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
-    user_id = Column(String, nullable=False)
-    title = Column(String, nullable=False)
-    messages = Column(JSON, nullable=False, default=[])
-    created_at = Column(DateTime, default=func.now(), nullable=False)
-    updated_at = Column(DateTime, default=func.now(), onupdate=func.now(), nullable=False)
 
 class SchemaHistory(Base):
     __tablename__ = "schema_history"
