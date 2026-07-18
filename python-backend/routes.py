@@ -13,6 +13,97 @@ from tools import DbConfig
 import re
 from langchain_core.messages import SystemMessage, HumanMessage
 
+def robust_json_parse(json_str: str) -> dict:
+    import json
+    import re
+    
+    # 1. Try standard json loads first
+    try:
+        return json.loads(json_str)
+    except Exception:
+        pass
+        
+    # 2. State machine to escape newlines/tabs/quotes inside JSON strings
+    try:
+        in_string = False
+        escape = False
+        chars = []
+        for i, char in enumerate(json_str):
+            if char == '"' and not escape:
+                in_string = not in_string
+                chars.append(char)
+            elif in_string:
+                if char == '\n':
+                    chars.append('\\n')
+                elif char == '\r':
+                    chars.append('\\r')
+                elif char == '\t':
+                    chars.append('\\t')
+                elif char == '\\':
+                    escape = not escape
+                    chars.append(char)
+                else:
+                    escape = False
+                    chars.append(char)
+            else:
+                chars.append(char)
+        repaired = "".join(chars)
+        return json.loads(repaired)
+    except Exception:
+        pass
+
+    # 3. Regex parsing fallback
+    result = {}
+    
+    # Extract optimized_query
+    opt_match = re.search(r'"optimized_query"\s*:\s*"([\s\S]*?)"\s*(?:,|\n|\s*"explanation")', json_str)
+    if opt_match:
+        val = opt_match.group(1)
+        val = val.replace('\\n', '\n').replace('\\t', '\t').replace('\\"', '"').replace('\\\\', '\\')
+        result["optimized_query"] = val
+    else:
+        opt_match_relaxed = re.search(r'"optimized_query"\s*:\s*"([\s\S]*?)"\s*,\s*"explanation"', json_str)
+        if opt_match_relaxed:
+            result["optimized_query"] = opt_match_relaxed.group(1).replace('\\n', '\n')
+            
+    # Extract explanation
+    exp_match = re.search(r'"explanation"\s*:\s*"([\s\S]*?)"\s*(?:,\s*"bottlenecks"|\Z)', json_str)
+    if exp_match:
+        val = exp_match.group(1)
+        val = val.replace('\\n', '\n').replace('\\t', '\t').replace('\\"', '"').replace('\\\\', '\\')
+        result["explanation"] = val
+    else:
+        exp_match_relaxed = re.search(r'"explanation"\s*:\s*"([\s\S]*?)"\s*,\s*"bottlenecks"', json_str)
+        if exp_match_relaxed:
+            result["explanation"] = exp_match_relaxed.group(1).replace('\\n', '\n')
+
+    # Default fallbacks
+    if "optimized_query" not in result:
+        result["optimized_query"] = ""
+    if "explanation" not in result:
+        result["explanation"] = json_str
+        
+    result["bottlenecks"] = []
+    result["suggested_indexes"] = []
+    
+    # Try parsing list blocks
+    bottlenecks_match = re.search(r'"bottlenecks"\s*:\s*(\[[\s\S]*?\])', json_str)
+    if bottlenecks_match:
+        try:
+            result["bottlenecks"] = json.loads(bottlenecks_match.group(1))
+        except:
+            pass
+            
+    indexes_match = re.search(r'"suggested_indexes"\s*:\s*(\[[\s\S]*?\])', json_str)
+    if indexes_match:
+        try:
+            result["suggested_indexes"] = json.loads(indexes_match.group(1))
+        except:
+            pass
+
+    return result
+
+
 def run_db_query(db_config: dict, sql: str):
     db_type = db_config.get("db_type", "postgresql").lower()
     if db_type == "postgresql":
@@ -215,12 +306,20 @@ async def langgraph_optimize(request: SchemaChatBody, user_id: str = Depends(get
             except:
                 pass
 
+        goal = "Max Performance"
+        if "Goal:" in request.message:
+            try:
+                goal = request.message.split("Goal:")[1].split(".")[0].strip()
+            except:
+                pass
+
         initial_state = {
             "original_query": request.raw_query or "",
             "schema_context": schema_context,
             "previous_optimizations": "",
             "db_config": db_config_obj,
-            "on_trace": sync_on_trace
+            "on_trace": sync_on_trace,
+            "goal": goal
         }
 
         # Run the SYNC graph.invoke in a real background thread so that
@@ -282,14 +381,9 @@ async def langgraph_optimize(request: SchemaChatBody, user_id: str = Depends(get
                 if first != -1 and last != -1:
                     clean = clean[first:last+1].strip()
 
-            try:
-                llm_result = json.loads(clean)
-            except:
-                llm_result = {
-                    "optimized_query": final_state.get("optimized_query", ""),
-                    "explanation": clean,
-                    "bottlenecks": [], "suggested_indexes": [], "estimated_improvement": "", "execution_plan_summary": ""
-                }
+            llm_result = robust_json_parse(clean)
+            if not llm_result.get("optimized_query"):
+                llm_result["optimized_query"] = final_state.get("optimized_query", "")
 
             # Emit the structured JSON chunk so frontend can parse and display it
             yield f"event: chunk\ndata: {json.dumps(llm_result)}\n\n"
