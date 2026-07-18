@@ -25,8 +25,6 @@ def create_optimization_graph():
     llm = get_groq_llm(temperature=0.1)
 
     def query_parser(state: GraphState):
-        if state.get("on_trace"): state["on_trace"]("✓ Analyzing SQL Syntax & Structure (Query Parser)")
-        time.sleep(0.5)
         query = state.get("original_query", "").upper()
         
         score = 1
@@ -39,12 +37,8 @@ def create_optimization_graph():
         return {"complexity_score": score}
 
     def schema_analyst(state: GraphState):
-        if state.get("on_trace"): state["on_trace"]("✓ Analyzing Schema (Schema Analyst)")
-        time.sleep(0.6)
-        
         db_config = state.get("db_config")
         has_db = db_config and db_config.host
-        
         
         if has_db:
             tools_list = create_tools(db_config, state.get("on_trace"))
@@ -74,9 +68,6 @@ def create_optimization_graph():
         return {"messages": new_messages, "schema_context": enriched_schema}
 
     def sql_generator(state: GraphState):
-        if state.get("on_trace"): state["on_trace"]("✓ Generating Optimized SQL (SQL Generator)")
-        time.sleep(0.6)
-        
         feedback = ""
         messages = state.get("messages", [])
         if messages and state.get("iterations", 0) > 0:
@@ -111,9 +102,6 @@ def create_optimization_graph():
         db_config = state.get("db_config")
         has_db = db_config and db_config.host
         
-        if state.get("on_trace"): state["on_trace"](f"✓ Evaluating Cost (Performance Optimizer) - Iteration {iterations}")
-        time.sleep(0.6)
-        
         if has_db:
             tools_list = create_tools(db_config, state.get("on_trace"))
             perf_tools = [t for t in tools_list if t.name in ["run_explain", "analyze_cost", "optimize_indexes"]]
@@ -144,9 +132,6 @@ def create_optimization_graph():
 
     def reviewer(state: GraphState):
         iterations = state.get("iterations", 1)
-        if state.get("on_trace"): state["on_trace"](f"✓ Validating (Reviewer Agent) - Iteration {iterations}")
-        time.sleep(0.6)
-        
         messages = state.get("messages", [])
         perf_output = messages[-1].content if messages else "No performance data."
         goal = state.get("goal", "Max Performance")
