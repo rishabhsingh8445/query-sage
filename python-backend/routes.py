@@ -319,6 +319,51 @@ async def langgraph_optimize(request: SchemaChatBody, user_id: str = Depends(get
             except Exception as e:
                 print(f"RAG search failed: {e}")
 
+        # RAG Tiered Assistant:
+        # Tier 1: Search past query history
+        history_context = ""
+        try:
+            from rag import search_query_history
+            past_hits = await search_query_history(user_id, request.raw_query, limit=1)
+            if past_hits and past_hits[0].get("score", 0.0) >= 0.85:
+                payload = past_hits[0].get("payload", {})
+                history_context = f"""
+---
+[RAG ALERT: SIMILAR PAST OPTIMIZATION BLUEPRINT FOUND]
+A highly similar query was previously optimized by the user. Learn from this past resolution:
+- PAST ORIGINAL QUERY:
+{payload.get('original_query')}
+- PAST OPTIMIZED QUERY:
+{payload.get('optimized_query')}
+- PAST OPTIMIZATION EXPLANATION:
+{payload.get('explanation')}
+---
+"""
+        except Exception as e:
+            print(f"RAG Tier 1 search failed: {e}")
+
+        # Tier 2: Search global SQL Playbook (if Tier 1 was not found)
+        playbook_context = ""
+        if not history_context:
+            try:
+                from rag import search_playbook
+                playbook_hits = await search_playbook(request.raw_query, limit=2)
+                if playbook_hits:
+                    playbook_context = "\n--- APPLICABLE DBA PLAYBOOK GUIDELINES (RAG) ---\n"
+                    for hit in playbook_hits:
+                        payload = hit.get("payload", {})
+                        playbook_context += f"• [{payload.get('title')}]: {payload.get('rule')}\n"
+                    playbook_context += "----------------------------------------------\n"
+            except Exception as e:
+                print(f"RAG Tier 2 search failed: {e}")
+
+        # Compile previous optimizations context
+        rag_guidelines = ""
+        if history_context:
+            rag_guidelines += history_context
+        if playbook_context:
+            rag_guidelines += playbook_context
+
         goal = "Max Performance"
         if "Goal:" in request.message:
             try:
@@ -329,7 +374,7 @@ async def langgraph_optimize(request: SchemaChatBody, user_id: str = Depends(get
         initial_state = {
             "original_query": request.raw_query or "",
             "schema_context": schema_context,
-            "previous_optimizations": "",
+            "previous_optimizations": rag_guidelines,
             "db_config": db_config_obj,
             "on_trace": sync_on_trace,
             "goal": goal
@@ -417,6 +462,17 @@ async def langgraph_optimize(request: SchemaChatBody, user_id: str = Depends(get
                 )
                 db.add(history)
                 db.commit()
+                # Store in Qdrant Query History RAG collection!
+                try:
+                    from rag import store_query_history_chunk
+                    await store_query_history_chunk(
+                        user_id=user_id,
+                        original_query=request.raw_query,
+                        optimized_query=llm_result.get("optimized_query", ""),
+                        explanation=llm_result.get("explanation", "")
+                    )
+                except Exception as e:
+                    print(f"Failed to store query history in Qdrant: {e}")
             except Exception as e:
                 db.rollback()
 
