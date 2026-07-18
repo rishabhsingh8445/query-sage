@@ -9,10 +9,13 @@ load_dotenv()
 DATABASE_URL = os.getenv("DATABASE_URL")
 
 if not DATABASE_URL:
-    raise ValueError("DATABASE_URL is not set in the environment variables.")
+    print("WARNING: DATABASE_URL is not set in environment variables. Falling back to local sqlite.")
+    DATABASE_URL = "sqlite:///./querysage_fallback.db"
 
-# SQLAlchemy requires the postgresql prefix to be postgresql:// instead of postgres:// sometimes, but neon gives postgresql://
-engine = create_engine(DATABASE_URL)
+if DATABASE_URL.startswith("sqlite"):
+    engine = create_engine(DATABASE_URL, connect_args={"check_same_thread": False})
+else:
+    engine = create_engine(DATABASE_URL)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 Base = declarative_base()

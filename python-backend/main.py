@@ -5,8 +5,10 @@ from dotenv import load_dotenv
 from routes import router as api_router
 from database import engine, Base
 import models
-Base.metadata.create_all(bind=engine)
-
+try:
+    Base.metadata.create_all(bind=engine)
+except Exception as e:
+    print(f"Database table creation skipped: {e}")
 load_dotenv()
 
 app = FastAPI(title="QuerySage Python Backend")
