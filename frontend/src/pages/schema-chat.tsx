@@ -163,10 +163,89 @@ export default function SchemaChatPage() {
       setVisualizedSchema(data.ddl);
       setCopilotPrompt("");
       toast.success("DDL Schema generated and visualized successfully!");
+      
+      try {
+        const parsedNodes = parseSqlSchemaToNodes(data.ddl);
+        if (parsedNodes.length > 0) {
+          saveSchemaToDb(data.ddl, parsedNodes.length);
+        }
+      } catch (err) {}
     } catch (e: any) {
       toast.error(`DDL Generation failed: ${e.message}`);
     } finally {
       setIsGeneratingDDL(false);
+    }
+  };
+
+  // Schema History State
+  const [isSchemaHistoryOpen, setIsSchemaHistoryOpen] = useState(false);
+  const [schemaHistoryList, setSchemaHistoryList] = useState<any[]>([]);
+
+  const fetchSchemaHistory = async () => {
+    if (!isSignedIn) return;
+    try {
+      const token = await getToken();
+      const baseUrl = import.meta.env.VITE_API_URL || "";
+      const res = await fetch(`${baseUrl}/api/schema/history`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setSchemaHistoryList(data);
+      }
+    } catch (e) {
+      console.error("Failed to fetch schema history:", e);
+    }
+  };
+
+  useEffect(() => {
+    if (isSchemaHistoryOpen) {
+      fetchSchemaHistory();
+    }
+  }, [isSchemaHistoryOpen]);
+
+  const saveSchemaToDb = async (ddlText: string, tableCount: number) => {
+    if (!isSignedIn) return;
+    try {
+      const token = await getToken();
+      const baseUrl = import.meta.env.VITE_API_URL || "";
+      await fetch(`${baseUrl}/api/schema/history`, {
+        method: "POST",
+        headers: { 
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify({ ddl: ddlText, table_count: tableCount })
+      });
+      fetchSchemaHistory();
+    } catch (e) {
+      console.error("Failed to save schema history:", e);
+    }
+  };
+
+  const handleLoadSchemaHistory = (item: any) => {
+    setSchemaDDL(item.ddl);
+    setVisualizedSchema(item.ddl);
+    setIsSchemaHistoryOpen(false);
+    toast.success("Loaded schema from history successfully!");
+  };
+
+  const handleDeleteSchemaHistory = async (e: React.MouseEvent, id: number) => {
+    e.stopPropagation();
+    if (!isSignedIn) return;
+    try {
+      const token = await getToken();
+      const baseUrl = import.meta.env.VITE_API_URL || "";
+      const res = await fetch(`${baseUrl}/api/schema/history/${id}`, {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      if (res.ok) {
+        toast.success("Schema history entry deleted");
+        fetchSchemaHistory();
+      }
+    } catch (e) {
+      console.error("Failed to delete schema history entry:", e);
     }
   };
 
@@ -190,6 +269,7 @@ export default function SchemaChatPage() {
         toast.error("No valid CREATE TABLE statements detected. Please verify your SQL syntax (e.g. closing parentheses).");
       } else {
         setVisualizedSchema(schemaDDL);
+        saveSchemaToDb(schemaDDL, parsedNodes.length);
         toast.success(`Successfully visualized ${parsedNodes.length} tables!`);
       }
     } catch (e: any) {
@@ -1037,11 +1117,68 @@ export default function SchemaChatPage() {
             
             {/* Left Pane: DDL Input */}
             <Card className="lg:col-span-1 bg-[#111113]/80 border-zinc-800/50 backdrop-blur-xl flex flex-col shadow-xl overflow-hidden h-full min-h-0">
-               <CardHeader className="border-b border-zinc-800/50 pb-4 bg-black/20 shrink-0">
+               <CardHeader className="flex flex-row items-center justify-between border-b border-zinc-800/50 pb-4 bg-black/20 shrink-0">
                  <CardTitle className="text-lg text-zinc-100 flex items-center gap-2">
                    <Code2 className="w-5 h-5 text-pink-400" /> Schema Definitions (DDL)
                  </CardTitle>
-                 </CardHeader>
+                 <Sheet open={isSchemaHistoryOpen} onOpenChange={setIsSchemaHistoryOpen}>
+                   <SheetTrigger asChild>
+                      <Button variant="outline" size="sm" className="h-8 bg-black/40 border-zinc-700 text-xs text-zinc-300 hover:text-white flex items-center gap-1.5 px-3">
+                        <Clock className="w-3.5 h-3.5" />
+                        <span>History</span>
+                      </Button>
+                   </SheetTrigger>
+                   <SheetContent className="w-[400px] sm:w-[540px] bg-[#0a0a0c]/95 border-l border-zinc-800 backdrop-blur-xl flex flex-col h-full overflow-hidden p-6 text-zinc-100">
+                     <SheetHeader className="mb-4 shrink-0">
+                       <SheetTitle className="text-xl font-semibold text-zinc-100 flex items-center gap-2">
+                          <Clock className="w-5 h-5 text-pink-400" />
+                          Schema DDL History
+                       </SheetTitle>
+                       <SheetDescription className="text-zinc-400">
+                          View and restore your previous visualized SQL DDL schemas.
+                       </SheetDescription>
+                     </SheetHeader>
+
+                     <div className="flex-1 overflow-y-auto custom-scrollbar space-y-3.5 min-h-0 pr-1">
+                       {schemaHistoryList.length === 0 ? (
+                         <div className="text-center py-12 text-zinc-500 font-mono text-xs">
+                           No schema history saved yet. Visualizing a schema automatically saves it.
+                         </div>
+                       ) : (
+                         schemaHistoryList.map((item: any) => (
+                           <div 
+                             key={item.id} 
+                             className="group relative border border-zinc-800/80 bg-zinc-900/10 hover:bg-zinc-900/35 p-4 rounded-xl transition-all cursor-pointer flex flex-col gap-2"
+                             onClick={() => handleLoadSchemaHistory(item)}
+                           >
+                             <div className="flex items-center justify-between">
+                               <Badge className="bg-pink-500/10 text-pink-400 border border-pink-500/20 font-bold font-mono text-[10px] px-2 py-0.5">
+                                 {item.table_count} tables
+                               </Badge>
+                               <div className="flex items-center gap-2">
+                                 <span className="text-[10px] text-zinc-500 font-mono">
+                                   {format(new Date(item.created_at), "MMM d, yyyy h:mm a")}
+                                 </span>
+                                 <Button
+                                   size="icon"
+                                   variant="ghost"
+                                   className="h-6 w-6 text-zinc-500 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-opacity p-0"
+                                   onClick={(e) => handleDeleteSchemaHistory(e, item.id)}
+                                 >
+                                   <Trash2 className="h-3.5 w-3.5" />
+                                 </Button>
+                               </div>
+                             </div>
+                             <pre className="text-[10px] font-mono text-zinc-400/90 whitespace-pre-wrap overflow-x-auto bg-black/40 p-2.5 rounded-lg border border-zinc-900/50 max-h-[120px]">
+                               {item.ddl}
+                             </pre>
+                           </div>
+                         ))
+                       )}
+                     </div>
+                   </SheetContent>
+                 </Sheet>
+               </CardHeader>
                <CardContent className="p-0 flex-1 flex flex-col min-h-0">
                   {/* AI DDL Copilot Input Box */}
                   <div className="p-3 bg-zinc-950/40 border-b border-zinc-800/50 flex gap-2 items-center shrink-0">

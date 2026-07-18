@@ -3,6 +3,9 @@ from fastapi.middleware.cors import CORSMiddleware
 import os
 from dotenv import load_dotenv
 from routes import router as api_router
+from database import engine, Base
+import models
+Base.metadata.create_all(bind=engine)
 
 load_dotenv()
 

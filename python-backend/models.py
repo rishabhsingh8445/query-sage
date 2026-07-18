@@ -30,3 +30,13 @@ class SchemaChatThread(Base):
     messages = Column(JSON, nullable=False, default=[])
     created_at = Column(DateTime, default=func.now(), nullable=False)
     updated_at = Column(DateTime, default=func.now(), onupdate=func.now(), nullable=False)
+
+class SchemaHistory(Base):
+    __tablename__ = "schema_history"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(String, nullable=False)
+    ddl = Column(Text, nullable=False)
+    table_count = Column(Integer, nullable=False, default=0)
+    created_at = Column(DateTime, default=func.now(), nullable=False)
+

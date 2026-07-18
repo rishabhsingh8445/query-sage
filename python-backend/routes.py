@@ -1220,3 +1220,44 @@ Do NOT output any markdown syntax, backticks, or explanation. Only raw SQL DDL c
     except Exception as e:
         from fastapi import HTTPException
         raise HTTPException(status_code=500, detail=f"Generation failed: {str(e)}")
+
+
+class SaveSchemaBody(BaseModel):
+    ddl: str
+    table_count: int
+
+@router.post("/schema/history")
+async def save_schema_history(request: SaveSchemaBody, user_id: str = Depends(get_current_user), db: Session = Depends(get_db)):
+    from models import SchemaHistory
+    entry = SchemaHistory(
+        user_id=user_id,
+        ddl=request.ddl,
+        table_count=request.table_count
+    )
+    db.add(entry)
+    db.commit()
+    return {"status": "success", "id": entry.id}
+
+@router.get("/schema/history")
+async def get_schema_history(user_id: str = Depends(get_current_user), db: Session = Depends(get_db)):
+    from models import SchemaHistory
+    from sqlalchemy import desc
+    recent = db.query(SchemaHistory).filter(SchemaHistory.user_id == user_id).order_by(desc(SchemaHistory.created_at)).all()
+    return [{
+        "id": r.id,
+        "ddl": r.ddl,
+        "table_count": r.table_count,
+        "created_at": r.created_at.isoformat() + "Z"
+    } for r in recent]
+
+@router.delete("/schema/history/{id}")
+async def delete_schema_history(id: int, user_id: str = Depends(get_current_user), db: Session = Depends(get_db)):
+    from models import SchemaHistory
+    entry = db.query(SchemaHistory).filter(SchemaHistory.id == id, SchemaHistory.user_id == user_id).first()
+    if not entry:
+        from fastapi import HTTPException
+        raise HTTPException(status_code=404, detail="Not found")
+    db.delete(entry)
+    db.commit()
+    return {"status": "success"}
+
