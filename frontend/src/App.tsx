@@ -6,12 +6,9 @@ import { Switch, Route, useLocation, Router as WouterRouter, Redirect } from "wo
 import { QueryClient, QueryClientProvider, useQueryClient } from "@tanstack/react-query";
 
 const LandingPage = lazy(() => import("./pages/landing"));
-const DashboardPage = lazy(() => import("./pages/dashboard"));
 const HistoryPage = lazy(() => import("./pages/history"));
 const StatsPage = lazy(() => import("./pages/stats"));
 const SharePage = lazy(() => import("./pages/share"));
-const MonitorPage = lazy(() => import("./pages/monitor"));
-const BuilderPage = lazy(() => import("./pages/builder"));
 const SchemaChatPage = lazy(() => import("./pages/schema-chat"));
 
 const NotFound = lazy(() => import("./pages/not-found"));
@@ -203,8 +200,6 @@ function ClerkProviderWithRoutes() {
               <Route path="/dashboard" component={HomeRoute} />
               <Route path="/history" component={HistoryRoute} />
               <Route path="/stats" component={StatsRoute} />
-              <Route path="/monitor"><AppLayout><MonitorPage /></AppLayout></Route>
-              <Route path="/builder"><AppLayout><BuilderPage /></AppLayout></Route>
               <Route path="/schema-chat"><AppLayout><SchemaChatPage /></AppLayout></Route>
 
               <Route path="/share/:id" component={SharePage} />
