@@ -9,8 +9,10 @@ load_dotenv()
 DATABASE_URL = os.getenv("DATABASE_URL")
 
 if not DATABASE_URL:
-    print("WARNING: DATABASE_URL is not set in environment variables. Falling back to local sqlite.")
-    DATABASE_URL = "sqlite:///./querysage_fallback.db"
+    import tempfile
+    db_path = os.path.join(tempfile.gettempdir(), "querysage_fallback.db")
+    print(f"WARNING: DATABASE_URL is not set. Falling back to sqlite at: {db_path}")
+    DATABASE_URL = f"sqlite:///{db_path}"
 
 if DATABASE_URL.startswith("sqlite"):
     engine = create_engine(DATABASE_URL, connect_args={"check_same_thread": False})
