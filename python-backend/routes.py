@@ -322,11 +322,15 @@ async def langgraph_optimize(request: SchemaChatBody, user_id: str = Depends(get
         # RAG Tiered Assistant:
         # Tier 1: Search past query history
         history_context = ""
+        rag_source = None
+        score_pct = 0
         try:
             from rag import search_query_history
             past_hits = await search_query_history(user_id, request.raw_query, limit=1)
             if past_hits and past_hits[0].get("score", 0.0) >= 0.85:
                 payload = past_hits[0].get("payload", {})
+                score_pct = int(past_hits[0].get("score", 0.0) * 100)
+                rag_source = "Tier 1"
                 history_context = f"""
 ---
 [RAG ALERT: SIMILAR PAST OPTIMIZATION BLUEPRINT FOUND]
@@ -344,16 +348,19 @@ A highly similar query was previously optimized by the user. Learn from this pas
 
         # Tier 2: Search global SQL Playbook (if Tier 1 was not found)
         playbook_context = ""
+        applied_rules = []
         if not history_context:
             try:
                 from rag import search_playbook
-                playbook_hits = await search_playbook(request.raw_query, limit=2)
+                playbook_hits = await search_playbook(request.raw_query, dialect=request.db_type, limit=2)
                 if playbook_hits:
                     playbook_context = "\n--- APPLICABLE DBA PLAYBOOK GUIDELINES (RAG) ---\n"
                     for hit in playbook_hits:
                         payload = hit.get("payload", {})
+                        applied_rules.append(payload.get('title'))
                         playbook_context += f"• [{payload.get('title')}]: {payload.get('rule')}\n"
                     playbook_context += "----------------------------------------------\n"
+                    rag_source = "Tier 2"
             except Exception as e:
                 print(f"RAG Tier 2 search failed: {e}")
 
@@ -442,6 +449,15 @@ A highly similar query was previously optimized by the user. Learn from this pas
             llm_result = robust_json_parse(clean)
             if not llm_result.get("optimized_query"):
                 llm_result["optimized_query"] = final_state.get("optimized_query", "")
+
+            # Prepend RAG Citation Badge/Block to the explanation report!
+            if rag_source:
+                original_explanation = llm_result.get("explanation", "")
+                if rag_source == "Tier 1":
+                    badge = f"> 💡 **RAG System Status**: Loaded Similar Past Optimization Blueprint ({score_pct}% Match)\n>\n> *Using your historical database query optimization profiles as reference learning context.*\n\n"
+                else:
+                    badge = f"> 📚 **RAG System Status**: Applied Guidelines from **{request.db_type or 'Global'}** Playbook ({', '.join(applied_rules)})\n>\n> *Parsed relevant dialect-specific indexing & query structures to compile report.*\n\n"
+                llm_result["explanation"] = badge + original_explanation
 
             # Emit the structured JSON chunk so frontend can parse and display it
             yield f"event: chunk\ndata: {json.dumps(llm_result)}\n\n"

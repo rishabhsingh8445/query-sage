@@ -42,6 +42,11 @@ def init_qdrant():
             collections = resp.json().get("result", {}).get("collections", [])
             existing_names = [c.get("name") for c in collections]
             
+            # Recreate playbook collection to update metadata indices
+            if PLAYBOOK_COLLECTION in existing_names:
+                requests.delete(f"{QDRANT_URL}/collections/{PLAYBOOK_COLLECTION}", headers=qdrant_headers())
+                existing_names.remove(PLAYBOOK_COLLECTION)
+                
             for name in [COLLECTION_NAME, HISTORY_COLLECTION, PLAYBOOK_COLLECTION]:
                 if name not in existing_names:
                     payload = {
@@ -72,10 +77,18 @@ def seed_playbook_data():
         sections = content.split("## ")
         for sec in sections[1:]:
             lines = sec.split("\n")
-            title = lines[0].strip()
+            header = lines[0].strip()
             body = "\n".join(lines[1:]).strip()
+            
+            dialect = "Global"
+            title = header
+            match = re.search(r'\[(.*?)\]\s*(.*)', header)
+            if match:
+                dialect = match.group(1).strip()
+                title = match.group(2).strip()
+                
             if title and body:
-                chunk_text = f"Category: {title}\nRule: {body}"
+                chunk_text = f"Dialect: {dialect}\nCategory: {title}\nRule: {body}"
                 vector = get_embedding(chunk_text)
                 point_id = str(uuid.uuid4())
                 payload = {
@@ -86,6 +99,7 @@ def seed_playbook_data():
                             "payload": {
                                 "title": title,
                                 "rule": body,
+                                "dialect": dialect,
                                 "content": chunk_text
                             }
                         }
@@ -208,11 +222,34 @@ async def search_query_history(user_id: str, query: str, limit: int = 1):
         print(f"Error searching query history: {e}")
         return []
 
-async def search_playbook(query: str, limit: int = 2):
+async def search_playbook(query: str, dialect: str = "Global", limit: int = 2):
     try:
         vector = get_embedding(query)
+        
+        dialect_val = "Global"
+        if dialect:
+            d_lower = dialect.lower()
+            if "postgres" in d_lower:
+                dialect_val = "PostgreSQL"
+            elif "mysql" in d_lower:
+                dialect_val = "MySQL"
+            elif "sqlite" in d_lower:
+                dialect_val = "SQLite"
+                
         payload = {
             "vector": vector,
+            "filter": {
+                "should": [
+                    {
+                        "key": "dialect",
+                        "match": {"value": "Global"}
+                    },
+                    {
+                        "key": "dialect",
+                        "match": {"value": dialect_val}
+                    }
+                ]
+            },
             "limit": limit
         }
         resp = requests.post(f"{QDRANT_URL}/collections/{PLAYBOOK_COLLECTION}/points/search", headers=qdrant_headers(), json=payload)
