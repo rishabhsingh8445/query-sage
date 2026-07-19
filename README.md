@@ -1,5 +1,5 @@
 <div align="center">
-  <h1>✨ QuerySage (V2 Flagship)</h1>
+  <h1>✨ QuerySage</h1>
   <p><strong>Agentic AI-Powered SQL Query Optimizer & Database Architect</strong></p>
   <p><strong>🔗 Live Demo: <a href="https://querysage.vercel.app/">https://querysage.vercel.app/</a></strong></p>
   
@@ -17,20 +17,20 @@
 
 ## 📖 Overview
 
-**QuerySage V2** is an autonomous, **Agentic AI Database Tuning & Architecture Suite** powered by LangGraph. It models a team of expert Database Administrators (DBAs) that collaboratively parse, analyze, generate, evaluate, and compile optimized SQL query reports. 
+**QuerySage** is an autonomous, multi-agent AI system designed to optimize database queries. Powered by LangGraph, it acts as a virtual team of database administrators (DBAs) that parses input queries, cross-references database schemas, applies dialect-specific optimization guidelines, evaluates execution costs, and builds comprehensive, structured optimization reports.
 
-Featuring a sleek glassmorphism-inspired dark interface, QuerySage lets you visualize real-time agent typewriter traces, dynamically map schema DDL into interactive Entity Relationship Diagrams (ERDs), inspect live slow queries using active database connection telemetry, and run simulated index checks without modifying production environments.
+The application features a sleek dark mode dashboard where users can observe agent tracing in real-time, generate and visualize entity-relationship diagrams (ERDs) from raw DDL, monitor live database performance telemetry, and run non-destructive index simulations.
 
 ---
 
 ## 🚀 Key Features
 
-- 🧠 **Autonomous Agent Swarm (LangGraph):** A multi-agent team (`Query Parser` ➔ `Schema Analyzer` ➔ `Deep Optimizer` ➔ `Index Advisor` ➔ `Result Compiler`) resolves performance issues. The engine automatically runs self-correction loops when high-cost execution patterns (like sequential scans) are detected.
-- ⚡ **Dynamic Agent Trace UI:** Watch the agents collaborate in real-time. Typewriter-style logs stream individual agent activities (`✓ Analyzing Schema`, `✓ Running Explain`, `↻ High cost detected. Triggering self-correction loop...`).
-- 📚 **RAG-Infused SQL Playbook:** The RAG system matches raw input query dialects against custom DBA playbook guidelines stored in Qdrant Vector DB, dynamically injecting tailored rules (e.g., PostgreSQL partial index patterns, MySQL index hints).
-- 📊 **Interactive ERD & Schema Builder:** Generate schema DDL using natural language prompts, instantly parse CREATE TABLE statements, and view them on a fully responsive nodes canvas.
-- ⏱️ **Live Database Telemetry:** Connect to target database instances securely to poll performance stats (e.g., active connections, cache hit ratios, missing indexes, and slow queries).
-- 👥 **Clerk Authentication & Workspaces:** Robust access control, user authorization, and history persistence utilizing Clerk.
+- 🧠 **Autonomous Agent Swarm:** Specialized AI agents (`Query Parser`, `Schema Analyst`, `Deep Optimizer`, `Index Advisor`, and `Result Compiler`) run in a LangGraph-coordinated pipeline. When slow operations are detected, the system triggers an autonomous self-correction loop to continuously refine the output.
+- ⚡ **Real-Time Agent Tracing:** Live typewriter terminal logs stream agent actions (`✓ Analyzing Schema`, `✓ Running Explain`, `↻ High cost detected. Triggering self-correction loop...`), giving deep visibility into the AI's reasoning.
+- 📚 **Playbook & History Matching:** Integrates with Qdrant to match queries against structured performance tuning guidelines and historical optimization profiles. Groq handles semantic routing and context filtering.
+- 📊 **Visual ERD Canvas:** Convert SQL DDL commands into interactive nodes and visual relationships on a fully responsive diagram canvas.
+- ⏱️ **Live Database Telemetry:** Connect securely to database instances to monitor live active connections, cache hit ratios, missing indexes, and slow-running operations.
+- 👥 **Secure Auth & Workspaces:** Fully managed authentication, history tracking, and workspace sharing built on Clerk.
 
 ---
 
