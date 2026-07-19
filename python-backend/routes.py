@@ -273,6 +273,14 @@ async def langgraph_analyze(request: AnalyzeBody, user_id: str = Depends(get_cur
 
     return StreamingResponse(event_generator(), media_type="text/event-stream")
 
+class SchemaChatBody(BaseModel):
+    message: str
+    chat_history: Optional[List[Dict]] = []
+    raw_query: Optional[str] = None
+    db_type: Optional[str] = "PostgreSQL"
+    db_config: Optional[Dict] = None
+    timezone_offset: Optional[int] = 0
+
 @router.post("/langgraph-optimize")
 async def langgraph_optimize(request: SchemaChatBody, user_id: str = Depends(get_current_user), db: Session = Depends(get_db)):
     async def event_generator():
@@ -498,10 +506,6 @@ A highly similar query was previously optimized by the user. Learn from this pas
         yield "event: done\ndata: true\n\n"
         executor.shutdown(wait=False)
 
-    return StreamingResponse(event_generator(), media_type="text/event-stream")
-
-
-        
     return StreamingResponse(event_generator(), media_type="text/event-stream")
 
 
