@@ -1,6 +1,6 @@
 <div align="center">
   <h1>✨ QuerySage (V2 Flagship)</h1>
-  <p><strong>Agentic AI-Powered PostgreSQL Query Optimizer & Analyzer</strong></p>
+  <p><strong>Agentic AI-Powered SQL Query Optimizer & Database Architect</strong></p>
   <p><strong>🔗 Live Demo: <a href="https://querysage.vercel.app/">https://querysage.vercel.app/</a></strong></p>
   
   <p>
@@ -9,7 +9,7 @@
     <img src="https://img.shields.io/badge/FastAPI-009688?style=for-the-badge&logo=fastapi&logoColor=white" alt="FastAPI" />
     <img src="https://img.shields.io/badge/LangGraph-FF4F00?style=for-the-badge&logo=langchain&logoColor=white" alt="LangGraph" />
     <img src="https://img.shields.io/badge/Neon-00E599?style=for-the-badge&logo=postgresql&logoColor=black" alt="Neon Postgres" />
-    <img src="https://img.shields.io/badge/NVIDIA_NIM-76B900?style=for-the-badge&logo=nvidia&logoColor=white" alt="NVIDIA" />
+    <img src="https://img.shields.io/badge/Groq-f55?style=for-the-badge&logo=openai&logoColor=white" alt="Groq" />
   </p>
 </div>
 
@@ -17,29 +17,20 @@
 
 ## 📖 Overview
 
-**QuerySage V2** introduces a fully autonomous, **Agentic AI Architecture** powered by LangGraph. It is a premium workspace that helps developers and DBAs write faster, more efficient SQL queries. Instead of wrestling with slow performance and complex query planners, you can leverage a team of specialized AI agents to automatically analyze schemas, optimize queries, simulate index improvements, and self-correct—all within a seamless, glassmorphism-inspired dark interface.
+**QuerySage V2** is an autonomous, **Agentic AI Database Tuning & Architecture Suite** powered by LangGraph. It models a team of expert Database Administrators (DBAs) that collaboratively parse, analyze, generate, evaluate, and compile optimized SQL query reports. 
+
+Featuring a sleek glassmorphism-inspired dark interface, QuerySage lets you visualize real-time agent typewriter traces, dynamically map schema DDL into interactive Entity Relationship Diagrams (ERDs), inspect live slow queries using active database connection telemetry, and run simulated index checks without modifying production environments.
 
 ---
 
-## 🚀 Flagship V2 Features
+## 🚀 Key Features
 
-- 🧠 **Agentic Query Optimizer (Self-Correction Loop):** Powered by LangGraph, a 4-agent team (`Schema Analyst` ➔ `SQL Generator` ➔ `Performance Optimizer` ➔ `Reviewer`) evaluates your queries. If the `Performance Optimizer` detects a high-cost execution plan (e.g., Sequential Scans), the `Reviewer` rejects it, triggering an autonomous self-correction loop until an optimal query is generated.
-- ⚡ **Dynamic Agent Trace UI:** Watch the AI think in real-time. The frontend features a sleek, terminal-style trace UI that displays live typewriter logs of agent tools executing (e.g., `✓ Analyzing Schema`, `✓ Running Explain`, `↻ High cost detected. Triggering self-correction loop...`).
-- 🧠 **Long-Term Memory & Context Injection:** QuerySage remembers! The AI backend fetches your last 5 slow queries and previous optimizations and injects them into the agent's context, allowing it to learn from past mistakes.
-- 🔍 **Timezone-Aware Schema Chat:** Chat naturally with the AI about your schema and database health. The UI automatically injects your local timezone so the AI always provides chronologically accurate insights.
-- 📊 **Visual Query Builder:** Drag and drop tables on an interactive canvas to visually generate complex JOINs.
-- ⚡ **Live Performance Monitor:** Connect to any PostgreSQL/MySQL instance to poll `pg_stat_statements` and automatically identify the top 20 slowest queries in real-time. (Smartly filters out internal database background jobs).
-- 🎯 **Index Simulation:** Non-destructively simulate `CREATE INDEX` impacts before running them in production.
-- 👥 **Team Workspaces:** Securely collaborate on optimizations using Clerk Organizations.
-
----
-
-## 🛠️ Technology Stack
-
-- **Frontend:** React, Vite, Tailwind CSS, Shadcn UI, React Flow
-- **AI Backend:** Python, FastAPI, LangGraph, LangChain, Uvicorn
-- **Databases:** Neon PostgreSQL (History/Users), Qdrant (Vector DB)
-- **AI & Auth:** NVIDIA NIM (Llama 3.3 70B), Clerk Auth
+- 🧠 **Autonomous Agent Swarm (LangGraph):** A multi-agent team (`Query Parser` ➔ `Schema Analyzer` ➔ `Deep Optimizer` ➔ `Index Advisor` ➔ `Result Compiler`) resolves performance issues. The engine automatically runs self-correction loops when high-cost execution patterns (like sequential scans) are detected.
+- ⚡ **Dynamic Agent Trace UI:** Watch the agents collaborate in real-time. Typewriter-style logs stream individual agent activities (`✓ Analyzing Schema`, `✓ Running Explain`, `↻ High cost detected. Triggering self-correction loop...`).
+- 📚 **RAG-Infused SQL Playbook:** The RAG system matches raw input query dialects against custom DBA playbook guidelines stored in Qdrant Vector DB, dynamically injecting tailored rules (e.g., PostgreSQL partial index patterns, MySQL index hints).
+- 📊 **Interactive ERD & Schema Builder:** Generate schema DDL using natural language prompts, instantly parse CREATE TABLE statements, and view them on a fully responsive nodes canvas.
+- ⏱️ **Live Database Telemetry:** Connect to target database instances securely to poll performance stats (e.g., active connections, cache hit ratios, missing indexes, and slow queries).
+- 👥 **Clerk Authentication & Workspaces:** Robust access control, user authorization, and history persistence utilizing Clerk.
 
 ---
 
@@ -48,89 +39,122 @@
 ```mermaid
 graph TD
     %% Core Nodes
-    Client["Client Browser"]
-    PythonAPI["FastAPI Agent Engine"]
-    Neon["Neon PostgreSQL"]
-    LLM["NVIDIA NIM AI"]
-    LiveDB["Connected Database"]
+    Client["Client Browser (React + Vite)"]
+    PythonAPI["FastAPI Backend Engine"]
+    Neon["Neon PostgreSQL (User History)"]
+    Qdrant["Qdrant Vector DB (Schema & Playbook RAG)"]
+    LLM["Groq API (Llama 3.3 70B)"]
+    Embed["Gemini API (text-embedding-004)"]
+    LiveDB["User Database (Telemetry & EXPLAIN)"]
 
     %% LangGraph Agents
-    subgraph "LangGraph Team"
+    subgraph "LangGraph Swarm"
+        Parser["Query Parser"]
         Schema["Schema Analyst"]
         Gen["SQL Generator"]
         Opt["Performance Optimizer"]
-        Rev["Reviewer"]
+        Rev["Reviewer / Compiler"]
     end
 
     %% Edges
-    Client -->|"HTTP/SSE"| PythonAPI
-    PythonAPI -->|"History"| Neon
-    PythonAPI -->|"Memory Fetch"| Neon
-    PythonAPI --> Schema
+    Client -->|"SSE Traces / JSON"| PythonAPI
+    PythonAPI -->|"Store History"| Neon
+    PythonAPI -->|"Playbook/Schema RAG"| Qdrant
+    PythonAPI --> Parser
+    Parser --> Schema
     Schema --> Gen
     Gen --> Opt
     Opt --> Rev
-    Rev -.->|"High Cost (Rewrite)"| Gen
-    Rev -->|"Approved"| Client
-    Schema -.->|"Tool: Get Keys"| LiveDB
-    Opt -.->|"Tool: Run EXPLAIN"| LiveDB
-    Schema -.-> LLM
-    Gen -.-> LLM
-    Opt -.-> LLM
-    Rev -.-> LLM
+    Rev -.->|"Self-Correction Loop"| Gen
+    Rev -->|"Final Report"| Client
+    
+    %% API Integrations
+    Schema -.->|"Tool: metadata"| LiveDB
+    Opt -.->|"Tool: EXPLAIN"| LiveDB
+    
+    %% Core LLM/Embedding calls
+    Parser & Schema & Gen & Opt & Rev -.->|"Chat Queries"| LLM
+    PythonAPI -.->|"Generate Embeddings"| Embed
 ```
 
 ---
 
-## 📁 Project Structure
+## 🛠️ Technology Stack
 
-```text
-querysage/
-├── frontend/           # React + Vite (Glassmorphism UI, Trace Terminal)
-├── python-backend/     # FastAPI + LangGraph Engine (4-Agent Team, Tools, Memory)
-├── lib/
-│   ├── db/             # Drizzle ORM schema & Neon connection
-│   └── api-zod/        # Shared TypeScript types
-└── pnpm-workspace.yaml # Monorepo config
-```
+- **Frontend:** React, Vite, Tailwind CSS, Shadcn UI, React Flow, Zustand
+- **Backend:** Python 3.11, FastAPI, LangGraph, LangChain, SQLAlchemy, Uvicorn
+- **Databases:** Neon PostgreSQL (Metadata & history), Qdrant (RAG vectors)
+- **APIs & Auth:** Groq (LLM engine), Google Gemini (Embedding generation), Clerk (Session security)
 
 ---
 
-## ⚙️ Getting Started
+## ⚙️ Environment Configuration
 
-### 1. Prerequisites
-- Node.js v18+ and `pnpm`
-- Python 3.10+ and `pip`
+Create a `.env` file in the `python-backend/` directory:
 
-### 2. Installation
-```bash
-git clone https://github.com/rishabhsingh8445/query-sage.git
-cd query-sage
-pnpm install
-```
-
-### 3. Environment Variables (`.env` in `python-backend`)
 ```env
-DATABASE_URL=your_neon_db_url
-NVIDIA_API_KEY=your_nvidia_key
+# Database Configuration (Neon PostgreSQL)
+DATABASE_URL=postgresql://<user>:<password>@<host>/<db>?sslmode=require
+
+# AI Model Credentials
+GROQ_API_KEY=gsk_...         # Primary LLM Optimizer (Llama 3.3)
+GEMINI_API_KEY=AIzaSy...     # Embedding generator for Schema/History RAG (text-embedding-004)
+
+# Vector Database (RAG Playbook)
+QDRANT_URL=http://localhost:6333
+QDRANT_API_KEY=...           # Optional Qdrant API key
+
+# Clerk Auth
+CLERK_SECRET_KEY=sk_test_...
+CLERK_FRONTEND_API=https://...
+ENVIRONMENT=development
 ```
 
-### 4. Run Locally
-**Terminal 1 (Frontend):**
-```bash
-cd frontend
-pnpm run dev
-```
+---
 
-**Terminal 2 (Python Backend):**
+## 🚀 Running Locally
+
+### 1. Backend Setup
 ```bash
 cd python-backend
 pip install -r requirements.txt
-uvicorn routes:app --reload --port 8000
+python main.py
+```
+*Runs backend server locally on `http://localhost:8000`*
+
+### 2. Frontend Setup
+Make sure you have your Clerk keys in `frontend/.env.development`:
+```env
+VITE_CLERK_PUBLISHABLE_KEY=pk_test_...
+VITE_API_URL=http://localhost:8000
+```
+
+```bash
+cd frontend
+pnpm install
+pnpm run dev
+```
+
+---
+
+## 📁 Repository Structure
+
+```text
+querysage/
+├── frontend/             # React + Vite application
+│   ├── src/
+│   │   ├── components/   # UI elements (Agent Swarm UI, Explain Graph, ERD)
+│   │   ├── pages/        # Main pages (Landing, Optimizer Chat, Stats Page)
+│   │   └── utils/        # Parsers & Helper utilities
+├── python-backend/       # FastAPI LangGraph application
+│   ├── routes.py         # SSE & HTTP endpoints
+│   ├── graph.py          # LangGraph structure & Node definitions
+│   ├── rag.py            # Qdrant vector storage and RAG lookup pipelines
+│   └── tools.py          # Database inspection tools
 ```
 
 ---
 <div align="center">
-  <i>"Make your queries run at the speed of thought."</i><br/>
+  <i>"Writing performant SQL at the speed of thought."</i><br/>
   Built by <strong>Rishabh Singh</strong>
 </div>
