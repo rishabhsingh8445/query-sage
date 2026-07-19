@@ -1,226 +1,150 @@
 import os
-import uuid
 import re
-import requests
-from dotenv import load_dotenv
+from typing import List, Dict
+from database import SessionLocal
+from models import SchemaHistory, QueryHistory
 
-load_dotenv()
-
-QDRANT_URL = os.getenv("QDRANT_URL", "http://localhost:6333").rstrip('/')
-QDRANT_API_KEY = os.getenv("QDRANT_API_KEY")
-GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
-
-COLLECTION_NAME = "querysage_schema_v2"
-HISTORY_COLLECTION = "querysage_history_v2"
-PLAYBOOK_COLLECTION = "querysage_playbook_v2"
-
-def qdrant_headers():
-    headers = {"Content-Type": "application/json"}
-    if QDRANT_API_KEY:
-        headers["api-key"] = QDRANT_API_KEY
-    return headers
-
-def get_embedding(text: str) -> list:
-    if not GEMINI_API_KEY:
-        raise ValueError("GEMINI_API_KEY is not set")
-    url = f"https://generativelanguage.googleapis.com/v1beta/models/text-embedding-004:embedContent?key={GEMINI_API_KEY}"
-    payload = {
-        "model": "models/text-embedding-004",
-        "content": {
-            "parts": [{"text": text}]
-        }
-    }
-    resp = requests.post(url, json=payload)
-    resp.raise_for_status()
-    data = resp.json()
-    return data.get("embedding", {}).get("values", [])
-
-def init_qdrant():
-    try:
-        resp = requests.get(f"{QDRANT_URL}/collections", headers=qdrant_headers())
-        if resp.status_code == 200:
-            collections = resp.json().get("result", {}).get("collections", [])
-            existing_names = [c.get("name") for c in collections]
-                
-            for name in [COLLECTION_NAME, HISTORY_COLLECTION, PLAYBOOK_COLLECTION]:
-                if name not in existing_names:
-                    payload = {
-                        "vectors": {
-                            "size": 768,
-                            "distance": "Cosine"
-                        }
-                    }
-                    requests.put(f"{QDRANT_URL}/collections/{name}", headers=qdrant_headers(), json=payload)
-            
-            seed_playbook_data()
-    except Exception as e:
-        print(f"Failed to initialize Qdrant collections: {e}")
-
-def seed_playbook_data():
-    try:
-        resp = requests.post(f"{QDRANT_URL}/collections/{PLAYBOOK_COLLECTION}/points/scroll", headers=qdrant_headers(), json={"limit": 1})
-        if resp.status_code == 200 and len(resp.json().get("result", {}).get("points", [])) > 0:
-            return
-            
-        playbook_path = os.path.join(os.path.dirname(__file__), "sql_best_practices.md")
-        if not os.path.exists(playbook_path):
-            return
-            
+# Read and parse playbook rules from sql_best_practices.md once at import time
+PLAYBOOK_RULES = []
+try:
+    playbook_path = os.path.join(os.path.dirname(__file__), "sql_best_practices.md")
+    if os.path.exists(playbook_path):
         with open(playbook_path, "r", encoding="utf-8") as f:
             content = f.read()
-            
         sections = content.split("## ")
         for sec in sections[1:]:
             lines = sec.split("\n")
+            if not lines:
+                continue
             header = lines[0].strip()
             body = "\n".join(lines[1:]).strip()
             
-            dialect = "Global"
+            dialect_val = "Global"
             title = header
             match = re.search(r'\[(.*?)\]\s*(.*)', header)
             if match:
-                dialect = match.group(1).strip()
+                dialect_val = match.group(1).strip()
                 title = match.group(2).strip()
-                
+            
             if title and body:
-                chunk_text = f"Dialect: {dialect}\nCategory: {title}\nRule: {body}"
-                vector = get_embedding(chunk_text)
-                point_id = str(uuid.uuid4())
-                payload = {
-                    "points": [
-                        {
-                            "id": point_id,
-                            "vector": vector,
-                            "payload": {
-                                "title": title,
-                                "rule": body,
-                                "dialect": dialect,
-                                "content": chunk_text
-                            }
-                        }
-                    ]
-                }
-                requests.put(f"{QDRANT_URL}/collections/{PLAYBOOK_COLLECTION}/points", headers=qdrant_headers(), json=payload)
-        print("Successfully seeded Qdrant Playbook with SQL Best Practices!")
-    except Exception as e:
-        print(f"Failed to seed playbook data in Qdrant: {e}")
+                PLAYBOOK_RULES.append({
+                    "title": title,
+                    "rule": body,
+                    "dialect": dialect_val
+                })
+        print(f"Loaded {len(PLAYBOOK_RULES)} SQL Best Practices rules locally!")
+except Exception as e:
+    print(f"Failed to load local playbook rules: {e}")
 
-init_qdrant()
+
+def get_jaccard_similarity(q1: str, q2: str) -> float:
+    """Computes keyword overlap (Jaccard similarity) between two SQL queries."""
+    w1 = set(re.findall(r'\b\w+\b', q1.lower()))
+    w2 = set(re.findall(r'\b\w+\b', q2.lower()))
+    if not w1 or not w2:
+        return 0.0
+    return len(w1.intersection(w2)) / len(w1.union(w2))
+
 
 async def store_schema_chunk(workspace_id: str, table_name: str, schema_ddl: str):
-    try:
-        content = f"Table: {table_name}\nSchema:\n{schema_ddl}"
-        vector = get_embedding(content)
-        
-        point_id = str(uuid.uuid4())
-        payload = {
-            "points": [
-                {
-                    "id": point_id,
-                    "vector": vector,
-                    "payload": {
-                        "workspace_id": workspace_id,
-                        "table_name": table_name,
-                        "schema_ddl": schema_ddl,
-                        "content": content
-                    }
-                }
-            ]
-        }
-        resp = requests.put(f"{QDRANT_URL}/collections/{COLLECTION_NAME}/points", headers=qdrant_headers(), json=payload)
-        resp.raise_for_status()
-    except Exception as e:
-        print(f"Error storing schema chunk: {e}")
+    """Noop: Schema history is already saved in the SQL database."""
+    pass
+
 
 async def search_relevant_schema(workspace_id: str, query: str, limit: int = 5):
+    """
+    Fetches the user's latest DDL schema from database, parses the tables, 
+    and returns schemas for tables that are explicitly mentioned in the query.
+    """
     try:
-        vector = get_embedding(query)
-        payload = {
-            "vector": vector,
-            "filter": {
-                "must": [
-                    {
-                        "key": "workspace_id",
-                        "match": {"value": workspace_id}
+        db = SessionLocal()
+        latest_schema = db.query(SchemaHistory).filter(SchemaHistory.user_id == workspace_id).order_by(SchemaHistory.created_at.desc()).first()
+        db.close()
+
+        if not latest_schema or not latest_schema.ddl:
+            return []
+
+        clean_ddl = re.sub(r'/\*.*?\*/', '', latest_schema.ddl)
+        clean_ddl = re.sub(r'--.*$', '', clean_ddl, flags=re.M)
+
+        # Parse tables from DDL
+        table_regex = re.compile(
+            r'CREATE\s+TABLE\s+(?:IF\s+NOT\s+EXISTS\s+)?(?:[\w`"\[\]]+\.)?([a-zA-Z0-9_`"\[\]]+)\s*\((.*?)\)(?:;|\s*$|\Z)',
+            re.IGNORECASE | re.DOTALL
+        )
+        
+        query_words = set(re.findall(r'\b\w+\b', query.lower()))
+        matched_hits = []
+
+        for match in table_regex.finditer(clean_ddl):
+            table_name = match.group(1).replace('`','').replace('"','').replace('[','').replace(']','').strip()
+            table_ddl = match.group(0).strip()
+            
+            # If the query references the table name, return its DDL definition
+            if table_name.lower() in query_words:
+                matched_hits.append({
+                    "id": table_name,
+                    "score": 1.0,
+                    "payload": {
+                        "table_name": table_name,
+                        "schema_ddl": table_ddl
                     }
-                ]
-            },
-            "limit": limit
-        }
-        resp = requests.post(f"{QDRANT_URL}/collections/{COLLECTION_NAME}/points/search", headers=qdrant_headers(), json=payload)
-        if resp.status_code == 200:
-            results = resp.json().get("result", [])
-            return [
-                {
-                    "id": hit.get("id"),
-                    "score": hit.get("score"),
-                    "payload": hit.get("payload")
-                } for hit in results
-            ]
-        return []
+                })
+                if len(matched_hits) >= limit:
+                    break
+
+        return matched_hits
     except Exception as e:
-        print(f"Error searching schema: {e}")
+        print(f"Local schema search failed: {e}")
         return []
+
 
 async def store_query_history_chunk(user_id: str, original_query: str, optimized_query: str, explanation: str):
-    try:
-        content = f"Original Query:\n{original_query}\n\nOptimized Query:\n{optimized_query}\n\nExplanation:\n{explanation}"
-        vector = get_embedding(original_query)
-        point_id = str(uuid.uuid4())
-        payload = {
-            "points": [
-                {
-                    "id": point_id,
-                    "vector": vector,
-                    "payload": {
-                        "user_id": user_id,
-                        "original_query": original_query,
-                        "optimized_query": optimized_query,
-                        "explanation": explanation,
-                        "content": content
-                    }
-                }
-            ]
-        }
-        resp = requests.put(f"{QDRANT_URL}/collections/{HISTORY_COLLECTION}/points", headers=qdrant_headers(), json=payload)
-        resp.raise_for_status()
-    except Exception as e:
-        print(f"Error storing query history chunk: {e}")
+    """Noop: Query history is already saved in the SQL database."""
+    pass
+
 
 async def search_query_history(user_id: str, query: str, limit: int = 1):
+    """
+    Fetches past user optimizations from SQL database and matches them 
+    using keyword similarity to detect similar query structures.
+    """
     try:
-        vector = get_embedding(query)
-        payload = {
-            "vector": vector,
-            "filter": {
-                "must": [
-                    {
-                        "key": "user_id",
-                        "match": {"value": user_id}
+        db = SessionLocal()
+        past_queries = db.query(QueryHistory).filter(QueryHistory.user_id == user_id).order_by(QueryHistory.created_at.desc()).limit(20).all()
+        db.close()
+
+        if not past_queries:
+            return []
+
+        scored_matches = []
+        for q in past_queries:
+            similarity = get_jaccard_similarity(query, q.original_query)
+            # High similarity matches only (> 0.70 threshold)
+            if similarity >= 0.70:
+                scored_matches.append({
+                    "id": str(q.id),
+                    "score": similarity,
+                    "payload": {
+                        "original_query": q.original_query,
+                        "optimized_query": q.optimized_query,
+                        "explanation": q.explanation
                     }
-                ]
-            },
-            "limit": limit
-        }
-        resp = requests.post(f"{QDRANT_URL}/collections/{HISTORY_COLLECTION}/points/search", headers=qdrant_headers(), json=payload)
-        if resp.status_code == 200:
-            results = resp.json().get("result", [])
-            return [
-                {
-                    "id": hit.get("id"),
-                    "score": hit.get("score"),
-                    "payload": hit.get("payload")
-                } for hit in results
-            ]
-        return []
+                })
+
+        # Sort by similarity score descending
+        scored_matches.sort(key=lambda x: x["score"], reverse=True)
+        return scored_matches[:limit]
     except Exception as e:
-        print(f"Error searching query history: {e}")
+        print(f"Local query history search failed: {e}")
         return []
 
+
 async def search_playbook(query: str, dialect: str = "Global", limit: int = 2):
+    """
+    Finds matching SQL best practices from the playbook using keyword intersection.
+    """
     try:
-        vector = get_embedding(query)
-        
         dialect_val = "Global"
         if dialect:
             d_lower = dialect.lower()
@@ -230,34 +154,47 @@ async def search_playbook(query: str, dialect: str = "Global", limit: int = 2):
                 dialect_val = "MySQL"
             elif "sqlite" in d_lower:
                 dialect_val = "SQLite"
+
+        query_words = set(re.findall(r'\b\w+\b', query.lower()))
+        scored_rules = []
+
+        for r in PLAYBOOK_RULES:
+            # Only match Global rules or specific dialect rules
+            if r["dialect"] == "Global" or r["dialect"].lower() == dialect_val.lower():
+                # Score based on keyword intersection with the rule content
+                rule_words = set(re.findall(r'\b\w+\b', (r["title"] + " " + r["rule"]).lower()))
+                matches = query_words.intersection(rule_words)
                 
-        payload = {
-            "vector": vector,
-            "filter": {
-                "should": [
-                    {
-                        "key": "dialect",
-                        "match": {"value": "Global"}
-                    },
-                    {
-                        "key": "dialect",
-                        "match": {"value": dialect_val}
-                    }
-                ]
-            },
-            "limit": limit
-        }
-        resp = requests.post(f"{QDRANT_URL}/collections/{PLAYBOOK_COLLECTION}/points/search", headers=qdrant_headers(), json=payload)
-        if resp.status_code == 200:
-            results = resp.json().get("result", [])
-            return [
-                {
-                    "id": hit.get("id"),
-                    "score": hit.get("score"),
-                    "payload": hit.get("payload")
-                } for hit in results
-            ]
-        return []
+                # Check for critical query patterns (e.g. JOIN, subqueries, OR)
+                extra_score = 0
+                if "join" in r["title"].lower() and "join" in query_words:
+                    extra_score += 5
+                if "subquery" in r["title"].lower() and ("select" in query_words or "in" in query_words):
+                    extra_score += 3
+                if "index" in r["title"].lower() and ("where" in query_words or "join" in query_words):
+                    extra_score += 2
+
+                score = len(matches) + extra_score
+                if score > 0:
+                    scored_rules.append({
+                        "score": score,
+                        "rule": r
+                    })
+
+        # Sort by match score descending
+        scored_rules.sort(key=lambda x: x["score"], reverse=True)
+        
+        return [
+            {
+                "id": f"playbook_{i}",
+                "score": float(item["score"]),
+                "payload": {
+                    "title": item["rule"]["title"],
+                    "rule": item["rule"]["rule"],
+                    "dialect": item["rule"]["dialect"]
+                }
+            } for i, item in enumerate(scored_rules[:limit])
+        ]
     except Exception as e:
-        print(f"Error searching playbook: {e}")
+        print(f"Local playbook search failed: {e}")
         return []

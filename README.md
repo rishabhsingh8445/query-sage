@@ -83,8 +83,8 @@ graph TD
 
 - **Frontend:** React, Vite, Tailwind CSS, Shadcn UI, React Flow, Zustand
 - **Backend:** Python 3.11, FastAPI, LangGraph, LangChain, SQLAlchemy, Uvicorn
-- **Databases:** Neon PostgreSQL (Metadata & history), Qdrant (RAG vectors)
-- **APIs & Auth:** Groq (LLM engine), Google Gemini (Embedding generation), Clerk (Session security)
+- **Databases:** Neon PostgreSQL (Metadata & history)
+- **APIs & Auth:** Groq (LLM engine), Clerk (Session security)
 
 ---
 
@@ -98,11 +98,6 @@ DATABASE_URL=postgresql://<user>:<password>@<host>/<db>?sslmode=require
 
 # AI Model Credentials
 GROQ_API_KEY=gsk_...         # Primary LLM Optimizer (Llama 3.3)
-GEMINI_API_KEY=AIzaSy...     # Embedding generator for Schema/History RAG (text-embedding-004)
-
-# Vector Database (RAG Playbook)
-QDRANT_URL=http://localhost:6333
-QDRANT_API_KEY=...           # Optional Qdrant API key
 
 # Clerk Auth
 CLERK_SECRET_KEY=sk_test_...
@@ -149,7 +144,7 @@ querysage/
 ├── python-backend/       # FastAPI LangGraph application
 │   ├── routes.py         # SSE & HTTP endpoints
 │   ├── graph.py          # LangGraph structure & Node definitions
-│   ├── rag.py            # Qdrant vector storage and RAG lookup pipelines
+│   ├── rag.py            # Local SQL and text-based keyword RAG pipelines
 │   └── tools.py          # Database inspection tools
 ```
 
