@@ -1,6 +1,6 @@
 import { useRoute } from "wouter";
 import { useQuery } from "@tanstack/react-query";
-import { Loader2, CheckCircle2, ShieldAlert, Cpu } from "lucide-react";
+import { Loader2, CheckCircle2, ShieldAlert, Cpu, DatabaseZap } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -105,7 +105,7 @@ export default function SharePage() {
     <div className="flex h-screen w-full flex-col bg-background">
       <div className="border-b border-border bg-card p-4 shadow-sm z-10 flex justify-between items-center">
         <div className="flex items-center gap-2 text-primary font-bold text-lg">
-          <Cpu className="h-6 w-6" /> QuerySage Report
+          <DatabaseZap className="h-6 w-6" /> QuerySage Report
         </div>
         <div className="flex items-center gap-4">
           <Badge variant="outline">{report.db_type.toUpperCase()}</Badge>

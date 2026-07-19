@@ -9,7 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ArrowLeft, Database, Code2, Zap, SearchCode, Loader2, Activity, Network, Play, Clock, Trash2, Bot, Brain, Cpu, Shield, FileCheck, CheckCircle2, CircleDot, Calculator, ShieldAlert, Sparkles } from "lucide-react";
+import { ArrowLeft, Database, DatabaseZap, Code2, Zap, SearchCode, Loader2, Activity, Network, Play, Clock, Trash2, Bot, Brain, Cpu, Shield, FileCheck, CheckCircle2, CircleDot, Calculator, ShieldAlert, Sparkles } from "lucide-react";
 import { IndexEstimator } from "@/components/IndexEstimator";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger, SheetDescription } from "@/components/ui/sheet";
 import { useGetHistory, useDeleteHistoryEntry, getGetHistoryQueryKey, useGetHistoryEntry } from "@workspace/api-client-react";
@@ -620,7 +620,7 @@ export default function SchemaChatPage() {
            )}
            <div>
               <h1 className="text-2xl font-bold tracking-tight text-white flex items-center gap-2">
-                 <Database className="w-5 h-5 text-indigo-400" />
+                 <DatabaseZap className="w-6 h-6 text-primary animate-pulse" />
                  QuerySage
               </h1>
               <p className="text-xs text-zinc-400 mt-1">Enterprise Database Intelligence Toolkit</p>
