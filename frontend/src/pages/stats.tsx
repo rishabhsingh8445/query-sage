@@ -15,7 +15,7 @@ export default function StatsPage() {
     queryKey: ["query-intelligence"],
     queryFn: async () => {
       const token = await getToken();
-      const res = await fetch(`${import.meta.env.VITE_API_URL}/api/intelligence/history`, {
+      const res = await fetch(`${import.meta.env.VITE_API_URL || ""}/api/intelligence/history`, {
         headers: {
           Authorization: `Bearer ${token}`
         }
@@ -177,16 +177,12 @@ export default function StatsPage() {
                     <div className="space-y-4">
                       {intelligence.suggested_indexes?.map((idx: any, i: number) => (
                         <div key={i} className="bg-emerald-500/10 p-4 rounded-md border border-emerald-500/20">
-                          <div className="flex items-center justify-between mb-2">
-                            <Badge variant="outline" className="bg-background text-emerald-600 border-emerald-200">
-                              {idx.table}
-                            </Badge>
-                            <span className="text-xs font-mono bg-background px-2 py-1 rounded text-muted-foreground">
-                              {idx.column}
-                            </span>
-                          </div>
-                          <p className="text-sm font-medium mb-1">{idx.reason}</p>
-                          <p className="text-xs text-muted-foreground">Impact: {idx.impact}</p>
+                          <p className="text-sm font-mono font-medium text-emerald-400 mb-2 break-all">
+                            {typeof idx === "string" ? idx : idx.statement}
+                          </p>
+                          {typeof idx !== "string" && idx.reason && (
+                            <p className="text-xs text-muted-foreground">{idx.reason}</p>
+                          )}
                         </div>
                       ))}
                       {!intelligence.suggested_indexes?.length && (

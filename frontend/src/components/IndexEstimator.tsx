@@ -25,7 +25,7 @@ export function IndexEstimator({
     setError("");
     try {
       const token = await getToken();
-      const res = await fetch(`${import.meta.env.VITE_API_URL}/api/indexes/estimate`, {
+      const res = await fetch(`${import.meta.env.VITE_API_URL || ""}/api/indexes/estimate`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

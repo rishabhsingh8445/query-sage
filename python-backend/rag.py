@@ -41,11 +41,6 @@ def init_qdrant():
         if resp.status_code == 200:
             collections = resp.json().get("result", {}).get("collections", [])
             existing_names = [c.get("name") for c in collections]
-            
-            # Recreate playbook collection to update metadata indices
-            if PLAYBOOK_COLLECTION in existing_names:
-                requests.delete(f"{QDRANT_URL}/collections/{PLAYBOOK_COLLECTION}", headers=qdrant_headers())
-                existing_names.remove(PLAYBOOK_COLLECTION)
                 
             for name in [COLLECTION_NAME, HISTORY_COLLECTION, PLAYBOOK_COLLECTION]:
                 if name not in existing_names:

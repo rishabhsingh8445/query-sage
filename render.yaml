@@ -7,11 +7,19 @@ services:
     envVars:
       - key: DATABASE_URL
         sync: false
-      - key: NVIDIA_API_KEY
+      - key: GROQ_API_KEY
+        sync: false
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: QDRANT_URL
+        sync: false
+      - key: QDRANT_API_KEY
         sync: false
       - key: CLERK_PUBLISHABLE_KEY
         sync: false
       - key: CLERK_SECRET_KEY
         sync: false
+      - key: ENVIRONMENT
+        value: production
       - key: PYTHON_VERSION
         value: 3.11.6

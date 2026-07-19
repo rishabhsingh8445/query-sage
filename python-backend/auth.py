@@ -9,7 +9,7 @@ load_dotenv()
 CLERK_SECRET_KEY = os.getenv("CLERK_SECRET_KEY")
 CLERK_FRONTEND_API = os.getenv("CLERK_FRONTEND_API", "https://clerk.querysage.com")  # Replace with actual
 
-jwks_client = PyJWKClient(f"{CLERK_FRONTEND_API}/.well-known/jwks.json")
+
 
 def get_current_user(request: Request):
     """
