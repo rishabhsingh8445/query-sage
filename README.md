@@ -8,10 +8,10 @@
     <img src="https://img.shields.io/badge/PNPM-F69220?style=for-the-badge&logo=pnpm&logoColor=white" alt="pnpm" />
     <img src="https://img.shields.io/badge/Python-3776AB?style=for-the-badge&logo=python&logoColor=white" alt="Python" />
     <img src="https://img.shields.io/badge/FastAPI-009688?style=for-the-badge&logo=fastapi&logoColor=white" alt="FastAPI" />
-    <img src="https://img.shields.io/badge/LangGraph-FF4F00?style=for-the-badge&logo=chain&logoColor=white" alt="LangGraph" />
+    <img src="https://img.shields.io/badge/LangGraph-FF4F00?style=for-the-badge&logo=chain&logoColor=white&v=1" alt="LangGraph" />
     <img src="https://img.shields.io/badge/Neon_Postgres-00E599?style=for-the-badge&logo=postgresql&logoColor=black" alt="Neon Postgres" />
     <img src="https://img.shields.io/badge/Qdrant-FF4B4B?style=for-the-badge&logo=qdrant&logoColor=white" alt="Qdrant" />
-    <img src="https://img.shields.io/badge/Groq-orange?style=for-the-badge&logo=openai&logoColor=white" alt="Groq" />
+    <img src="https://img.shields.io/badge/Groq-orange?style=for-the-badge&logo=openai&logoColor=white&v=1" alt="Groq" />
   </p>
 </div>
 
