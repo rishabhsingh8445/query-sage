@@ -44,7 +44,6 @@ graph TD
     Neon["Neon PostgreSQL (User History)"]
     Qdrant["Qdrant Vector DB (Schema & Playbook RAG)"]
     LLM["Groq API (Llama 3.3 70B)"]
-    Embed["Gemini API (text-embedding-004)"]
     LiveDB["User Database (Telemetry & EXPLAIN)"]
 
     %% LangGraph Agents
@@ -74,7 +73,6 @@ graph TD
     
     %% Core LLM/Embedding calls
     Parser & Schema & Gen & Opt & Rev -.->|"Chat Queries"| LLM
-    PythonAPI -.->|"Generate Embeddings"| Embed
 ```
 
 ---

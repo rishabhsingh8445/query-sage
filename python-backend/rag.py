@@ -16,7 +16,7 @@ COLLECTION_NAME = "querysage_schema_v2"
 HISTORY_COLLECTION = "querysage_history_v2"
 PLAYBOOK_COLLECTION = "querysage_playbook_v2"
 
-# 768-dimensional dummy vector to satisfy Qdrant's vector schema without Gemini
+# 768-dimensional dummy vector to satisfy Qdrant's vector schema without external embedding API
 DUMMY_VECTOR = [0.0] * 768
 
 def qdrant_headers():
