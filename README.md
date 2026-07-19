@@ -83,8 +83,8 @@ graph TD
 
 - **Frontend:** React, Vite, Tailwind CSS, Shadcn UI, React Flow, Zustand
 - **Backend:** Python 3.11, FastAPI, LangGraph, LangChain, SQLAlchemy, Uvicorn
-- **Databases:** Neon PostgreSQL (Metadata & history)
-- **APIs & Auth:** Groq (LLM engine), Clerk (Session security)
+- **Databases:** Neon PostgreSQL (Metadata & history), Qdrant (RAG Vector Store)
+- **APIs & Auth:** Groq (LLM engine & RAG Router), Clerk (Session security)
 
 ---
 
@@ -97,7 +97,11 @@ Create a `.env` file in the `python-backend/` directory:
 DATABASE_URL=postgresql://<user>:<password>@<host>/<db>?sslmode=require
 
 # AI Model Credentials
-GROQ_API_KEY=gsk_...         # Primary LLM Optimizer (Llama 3.3)
+GROQ_API_KEY=gsk_...         # Primary LLM Optimizer (Llama 3.3) & RAG routing
+
+# Vector Database (RAG Playbook)
+QDRANT_URL=http://localhost:6333
+QDRANT_API_KEY=...           # Optional Qdrant API key
 
 # Clerk Auth
 CLERK_SECRET_KEY=sk_test_...
