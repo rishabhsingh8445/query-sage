@@ -37,6 +37,8 @@ def create_optimization_graph():
         return {"complexity_score": score}
 
     def schema_analyst(state: GraphState):
+        on_trace = state.get("on_trace")
+        if on_trace: on_trace("Analyzing Schema & Indexes...")
         db_config = state.get("db_config")
         has_db = db_config and db_config.host
         
@@ -68,6 +70,8 @@ def create_optimization_graph():
         return {"messages": new_messages, "schema_context": enriched_schema}
 
     def sql_generator(state: GraphState):
+        on_trace = state.get("on_trace")
+        if on_trace: on_trace("Generating Optimized SQL...")
         feedback = ""
         messages = state.get("messages", [])
         if messages and state.get("iterations", 0) > 0:
@@ -98,6 +102,8 @@ def create_optimization_graph():
         return {"optimized_query": optimized, "messages": [res]}
 
     def performance_optimizer(state: GraphState):
+        on_trace = state.get("on_trace")
+        if on_trace: on_trace("Evaluating Cost & Performance...")
         iterations = state.get("iterations", 0) + 1
         db_config = state.get("db_config")
         has_db = db_config and db_config.host
@@ -131,6 +137,8 @@ def create_optimization_graph():
         return {"messages": new_messages, "iterations": iterations}
 
     def reviewer(state: GraphState):
+        on_trace = state.get("on_trace")
+        if on_trace: on_trace("Validating & Reviewing Final Output...")
         iterations = state.get("iterations", 1)
         messages = state.get("messages", [])
         perf_output = messages[-1].content if messages else "No performance data."
