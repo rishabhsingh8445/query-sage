@@ -5,10 +5,12 @@
   
   <p>
     <img src="https://img.shields.io/badge/React-20232A?style=for-the-badge&logo=react&logoColor=61DAFB" alt="React" />
+    <img src="https://img.shields.io/badge/PNPM-F69220?style=for-the-badge&logo=pnpm&logoColor=white" alt="pnpm" />
     <img src="https://img.shields.io/badge/Python-3776AB?style=for-the-badge&logo=python&logoColor=white" alt="Python" />
     <img src="https://img.shields.io/badge/FastAPI-009688?style=for-the-badge&logo=fastapi&logoColor=white" alt="FastAPI" />
     <img src="https://img.shields.io/badge/LangGraph-FF4F00?style=for-the-badge&logo=langchain&logoColor=white" alt="LangGraph" />
-    <img src="https://img.shields.io/badge/Neon-00E599?style=for-the-badge&logo=postgresql&logoColor=black" alt="Neon Postgres" />
+    <img src="https://img.shields.io/badge/Neon_Postgres-00E599?style=for-the-badge&logo=postgresql&logoColor=black" alt="Neon Postgres" />
+    <img src="https://img.shields.io/badge/Qdrant-FF4B4B?style=for-the-badge&logo=qdrant&logoColor=white" alt="Qdrant" />
     <img src="https://img.shields.io/badge/Groq-f55?style=for-the-badge&logo=openai&logoColor=white" alt="Groq" />
   </p>
 </div>
@@ -17,20 +19,20 @@
 
 ## 📖 Overview
 
-**QuerySage** is an autonomous, multi-agent AI system designed to optimize database queries. Powered by LangGraph, it acts as a virtual team of database administrators (DBAs) that parses input queries, cross-references database schemas, applies dialect-specific optimization guidelines, evaluates execution costs, and builds comprehensive, structured optimization reports.
+**QuerySage** is an autonomous, multi-agent AI system designed to analyze, optimize, and document database queries. Powered by a collaborative team of specialized LLM agents structured via LangGraph, QuerySage evaluates query complexity, inspects database schemas, runs cost-check simulation loops (to catch sequential scans and high-cost joins), and generates dialect-specific optimization reports.
 
-The application features a sleek dark mode dashboard where users can observe agent tracing in real-time, generate and visualize entity-relationship diagrams (ERDs) from raw DDL, monitor live database performance telemetry, and run non-destructive index simulations.
+The application features a modern glassmorphism dark-mode interface with typewriter-style terminal traces, interactive entity-relationship diagrams (ERDs), live database telemetry (cache hit ratios, slow queries, missing indexes), and non-destructive index simulation.
 
 ---
 
 ## 🚀 Key Features
 
-- 🧠 **Autonomous Agent Swarm:** Specialized AI agents (`Query Parser`, `Schema Analyst`, `Deep Optimizer`, `Index Advisor`, and `Result Compiler`) run in a LangGraph-coordinated pipeline. When slow operations are detected, the system triggers an autonomous self-correction loop to continuously refine the output.
-- ⚡ **Real-Time Agent Tracing:** Live typewriter terminal logs stream agent actions (`✓ Analyzing Schema`, `✓ Running Explain`, `↻ High cost detected. Triggering self-correction loop...`), giving deep visibility into the AI's reasoning.
-- 📚 **Playbook & History Matching:** Integrates with Qdrant to match queries against structured performance tuning guidelines and historical optimization profiles. Groq handles semantic routing and context filtering.
-- 📊 **Visual ERD Canvas:** Convert SQL DDL commands into interactive nodes and visual relationships on a fully responsive diagram canvas.
-- ⏱️ **Live Database Telemetry:** Connect securely to database instances to monitor live active connections, cache hit ratios, missing indexes, and slow-running operations.
-- 👥 **Secure Auth & Workspaces:** Fully managed authentication, history tracking, and workspace sharing built on Clerk.
+- 🧠 **Autonomous Agent Swarm (LangGraph):** A team of 5 specialized agents (`Query Parser`, `Schema Analyst`, `Deep Optimizer`, `Index Advisor`, and `Result Compiler`) work together to optimize SQL. If the compiler detects a high-cost rewrite, it triggers a self-correction loop to regenerate an optimal query.
+- ⚡ **Real-Time Agent Tracing:** Live terminal typewriter logs stream agent actions (`✓ Analyzing Schema`, `✓ Running Explain`, `↻ High cost detected. Triggering self-correction loop...`), giving users visibility into the AI's step-by-step logic.
+- 📚 **RAG-Powered context Routing:** Integrates with Qdrant to load DB dialect playbooks and historical optimization profiles. Groq handles semantic context extraction and query comparison routing.
+- 📊 **Visual ERD Canvas:** Auto-parses standard SQL DDL schema definitions into dynamic nodes and interactive relationships on a responsive canvas.
+- ⏱️ **Live Database Telemetry:** Connect securely to target databases (PostgreSQL or MySQL) to fetch active sessions, cache hit ratios, missing indexes, and extract execution plans (`EXPLAIN ANALYZE`).
+- 👥 **Auth & History Persistence:** Complete user history tracking, sharing, and session authentication powered by Clerk.
 
 ---
 
@@ -71,7 +73,7 @@ graph TD
     Schema -.->|"Tool: metadata"| LiveDB
     Opt -.->|"Tool: EXPLAIN"| LiveDB
     
-    %% Core LLM/Embedding calls
+    %% Core LLM calls
     Parser & Schema & Gen & Opt & Rev -.->|"Chat Queries"| LLM
 ```
 
@@ -79,58 +81,10 @@ graph TD
 
 ## 🛠️ Technology Stack
 
-- **Frontend:** React, Vite, Tailwind CSS, Shadcn UI, React Flow, Zustand
-- **Backend:** Python 3.11, FastAPI, LangGraph, LangChain, SQLAlchemy, Uvicorn
-- **Databases:** Neon PostgreSQL (Metadata & history), Qdrant (RAG Vector Store)
-- **APIs & Auth:** Groq (LLM engine & RAG Router), Clerk (Session security)
-
----
-
-## ⚙️ Environment Configuration
-
-Create a `.env` file in the `python-backend/` directory:
-
-```env
-# Database Configuration (Neon PostgreSQL)
-DATABASE_URL=postgresql://<user>:<password>@<host>/<db>?sslmode=require
-
-# AI Model Credentials
-GROQ_API_KEY=gsk_...         # Primary LLM Optimizer (Llama 3.3) & RAG routing
-
-# Vector Database (RAG Playbook)
-QDRANT_URL=http://localhost:6333
-QDRANT_API_KEY=...           # Optional Qdrant API key
-
-# Clerk Auth
-CLERK_SECRET_KEY=sk_test_...
-CLERK_FRONTEND_API=https://...
-ENVIRONMENT=development
-```
-
----
-
-## 🚀 Running Locally
-
-### 1. Backend Setup
-```bash
-cd python-backend
-pip install -r requirements.txt
-python main.py
-```
-*Runs backend server locally on `http://localhost:8000`*
-
-### 2. Frontend Setup
-Make sure you have your Clerk keys in `frontend/.env.development`:
-```env
-VITE_CLERK_PUBLISHABLE_KEY=pk_test_...
-VITE_API_URL=http://localhost:8000
-```
-
-```bash
-cd frontend
-pnpm install
-pnpm run dev
-```
+- **Frontend:** React, Vite, Tailwind CSS, Shadcn UI, React Flow, Zustand, TanStack Query
+- **Backend:** Python 3.11, FastAPI, LangGraph, LangChain, SQLAlchemy, Psycopg2-binary, PyMySQL, Uvicorn
+- **Databases:** Neon PostgreSQL (Relational history storage via Drizzle ORM), Qdrant (RAG Vector Database)
+- **APIs & Auth:** Groq API (LLM Optimizer & RAG Routing), Clerk (Session security)
 
 ---
 
@@ -138,17 +92,81 @@ pnpm run dev
 
 ```text
 querysage/
-├── frontend/             # React + Vite application
-│   ├── src/
-│   │   ├── components/   # UI elements (Agent Swarm UI, Explain Graph, ERD)
-│   │   ├── pages/        # Main pages (Landing, Optimizer Chat, Stats Page)
-│   │   └── utils/        # Parsers & Helper utilities
-├── python-backend/       # FastAPI LangGraph application
-│   ├── routes.py         # SSE & HTTP endpoints
-│   ├── graph.py          # LangGraph structure & Node definitions
-│   ├── rag.py            # Local SQL and text-based keyword RAG pipelines
-│   └── tools.py          # Database inspection tools
+├── frontend/             # React + Vite application (UI, Swarm Trace Terminal)
+├── python-backend/       # FastAPI + LangGraph Engine (Agents, Tools, RAG)
+│   ├── routes.py         # HTTP endpoints & SSE streaming routers
+│   ├── graph.py          # LangGraph compilation & agent nodes
+│   ├── rag.py            # Qdrant integration & Groq RAG matching pipelines
+│   ├── database.py       # SQLAlchemy database connection setup
+│   ├── models.py         # Relational schema tables (QueryHistory, SchemaHistory)
+│   └── tools.py          # LangChain SQL metadata tools (EXPLAIN, get_schema)
+├── lib/                  # Shared Workspace Libraries
+│   ├── db/               # Drizzle ORM schema & Neon DB migrations
+│   ├── api-zod/          # Zod contract specs
+│   ├── api-spec/         # API specifications
+│   └── api-client-react/ # Generated API client hooks for React
+├── scripts/              # Build & automation scripts
+├── package.json          # Root monorepo configuration
+└── pnpm-workspace.yaml   # Monorepo workspaces definition
 ```
+
+---
+
+## ⚙️ Environment Configuration
+
+### Python Backend (`python-backend/.env`)
+Create a `.env` file in the `python-backend/` directory:
+
+```env
+# Neon PostgreSQL Connection URL
+DATABASE_URL=postgresql://<user>:<password>@<host>/<db>?sslmode=require
+
+# Groq LLM API Key (Primary Optimizer & RAG Router)
+GROQ_API_KEY=gsk_...
+
+# Qdrant Vector Database
+QDRANT_URL=http://localhost:6333
+QDRANT_API_KEY=...           # Optional Qdrant API key
+
+# Clerk Auth Config
+CLERK_SECRET_KEY=sk_test_...
+CLERK_FRONTEND_API=https://...
+ENVIRONMENT=development
+```
+
+### Frontend (`frontend/.env.development`)
+Create an env file in the `frontend/` directory:
+
+```env
+VITE_CLERK_PUBLISHABLE_KEY=pk_test_...
+VITE_API_URL=http://localhost:8000
+```
+
+---
+
+## 🚀 Running Locally
+
+### 1. Install Workspace Dependencies
+QuerySage is set up as a PNPM monorepo. Install dependencies at the root level:
+```bash
+pnpm install
+```
+
+### 2. Run the Frontend
+```bash
+cd frontend
+pnpm run dev
+```
+*Runs the React application on `http://localhost:5173`*
+
+### 3. Run the Python Backend
+Ensure Python 3.11+ is installed, then set up the FastAPI server:
+```bash
+cd python-backend
+pip install -r requirements.txt
+python main.py
+```
+*Runs the FastAPI backend on `http://localhost:8000` (auto-reloads on file changes)*
 
 ---
 <div align="center">
